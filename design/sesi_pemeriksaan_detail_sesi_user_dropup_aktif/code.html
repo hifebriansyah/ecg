@@ -1,0 +1,433 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>DETAKITA - Detail Sesi</title>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#005a64",
+            "primary-container": "#0b7480",
+            background: "#f8f9ff",
+            surface: "#f8f9ff",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#eff4ff",
+            "surface-container": "#e5eeff",
+            "on-surface": "#0b1c30",
+            "on-surface-variant": "#3e494a",
+            "outline-variant": "#bec8ca"
+          },
+          fontFamily: {
+            headline: ["Plus Jakarta Sans", "sans-serif"],
+            body: ["Plus Jakarta Sans", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    * {
+      box-shadow: none !important;
+      text-shadow: none !important;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background-color: #f8fafc;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-body text-slate-800 antialiased min-h-screen">
+<div class="flex min-h-screen w-full">
+<!-- Left Sidebar (Sticky, zero shadow, flat) -->
+<aside class="w-[260px] shrink-0 bg-white border-r border-slate-200 flex flex-col justify-between py-6 px-5 select-none sticky top-0 h-screen">
+<div class="flex flex-col gap-6">
+<!-- Brand Logo Header -->
+<div class="flex items-center gap-3 px-1">
+<div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-white shrink-0">
+<span class="material-symbols-outlined text-[20px]">ecg_heart</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-lg tracking-tight text-primary leading-tight">DETAKITA</span>
+
+</div>
+</div>
+<!-- Divider -->
+<div class="h-px bg-slate-200 w-full"></div>
+<!-- Navigation Menu -->
+<nav class="flex flex-col gap-1.5">
+<!-- 1. Dashboard -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-headline font-medium text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span>Dashboard</span>
+</a>
+<!-- 2. Tambah Sesi -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-headline font-medium text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+<span>Tambah Sesi</span>
+</a>
+<!-- 3. Sesi Pemeriksaan (Active) -->
+<div class="flex flex-col">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-primary bg-primary/10 font-headline font-semibold text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">vital_signs</span>
+<span>Sesi Pemeriksaan</span>
+</a>
+<!-- Submenus -->
+<div class="flex flex-col ml-5 pl-3 border-l border-slate-200 gap-1 mt-1.5 mb-1">
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-primary bg-primary/10 font-headline font-semibold text-xs transition-colors" href="#">
+<span>Berjalan</span>
+<span class="px-1.5 py-0.5 rounded-full text-[10px] bg-primary text-white font-mono font-medium">12</span>
+</a>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-headline font-medium text-xs transition-colors" href="#">
+<span>Selesai</span>
+<span class="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700 font-mono font-medium">48</span>
+</a>
+<a class="flex items-center justify-between px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-headline font-medium text-xs transition-colors" href="#">
+<span>Arsip</span>
+</a>
+</div>
+</div>
+<!-- 4. Master Data -->
+<div class="mt-2 flex flex-col">
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 font-headline font-semibold text-sm">
+<span class="material-symbols-outlined text-[20px]">folder_shared</span>
+<span>Master Data</span>
+</div>
+<!-- Sub-items -->
+<div class="flex flex-col ml-5 pl-3 border-l border-slate-200 gap-1 mt-1">
+<a class="flex items-center px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-headline font-medium text-xs transition-colors" href="#">
+<span>Dokter</span>
+</a>
+<a class="flex items-center px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-headline font-medium text-xs transition-colors" href="#">
+<span>Perawat</span>
+</a>
+<a class="flex items-center px-3 py-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-headline font-medium text-xs transition-colors" href="#">
+<span>Pasien</span>
+</a>
+</div>
+</div>
+</nav>
+</div>
+<!-- Bottom Profile Menu with Interactive Dropup -->
+<div class="flex flex-col gap-3">
+<div class="h-px bg-slate-200 w-full"></div>
+<div class="relative" id="userMenuContainer">
+<!-- Dropup Popup Menu -->
+<div class="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl border border-slate-200 p-1.5 flex-col gap-0.5 z-50 select-none hidden" id="userDropupMenu">
+<!-- Bahasa -->
+<button class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-headline font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors" type="button">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-slate-500">language</span>
+<span>Bahasa</span>
+</div>
+<span class="font-mono text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">ID</span>
+</button>
+<!-- Setting -->
+<button class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-headline font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-slate-500">settings</span>
+<span>Setting</span>
+</button>
+<!-- Divider -->
+<div class="h-px bg-slate-200 my-1 w-full"></div>
+<!-- Logout -->
+<button class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-headline font-medium text-red-600 hover:bg-red-50 transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-red-500">logout</span>
+<span>Logout</span>
+</button>
+</div>
+<button aria-expanded="false" aria-haspopup="true" class="w-full flex items-center justify-between p-2 rounded-xl text-slate-700 hover:bg-slate-100 font-headline text-sm transition-colors text-left" id="userMenuBtn" type="button">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                IN
+              </div>
+<div class="flex flex-col leading-tight">
+<span class="font-semibold text-slate-900 text-xs">Inara</span>
+<span class="text-[10px] text-slate-500">Admin</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[18px] text-slate-400" id="userMenuIcon">unfold_more</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Content Area: Pure Block Flow, Natural Expansion without cutoff -->
+<main class="flex-1 bg-slate-50 p-8 min-h-screen">
+<!-- Consistent Header -->
+<header class="mb-8 flex flex-col gap-5"><div class="bg-white rounded-xl border border-slate-200 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4"><div class="flex flex-wrap items-center gap-3"><a class="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-teal-800 transition-colors" href="#"><span class="material-symbols-outlined text-[16px]">arrow_back</span><span>Kembali ke Sesi Pemeriksaan</span></a><span class="text-slate-300">•</span><div class="flex items-center gap-2"><span class="font-mono text-xs text-slate-500">ID Sesi:</span><span class="font-mono text-xs font-semibold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">#a7f3b9c</span></div></div><div class="flex items-center gap-3 shrink-0"><div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200"><span class="w-2 h-2 rounded-full bg-emerald-600"></span><span class="font-medium">Sedang Berjalan</span></div><div class="h-4 w-px bg-slate-200"></div><button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors" type="button"><span class="material-symbols-outlined text-[16px] text-slate-500">check_circle</span><span>Tandai Selesai</span></button></div></div></header>
+<!-- Vertical Stack of 4 Cards (1 card per row, single column, pure flat design) -->
+<div class="flex flex-col gap-6 max-w-6xl">
+<!-- CARD 1: Informations -->
+<section class="bg-white rounded-xl border border-slate-200 p-6 flex flex-col gap-6">
+<!-- Sub-divider: Detail Pasien -->
+<div class="flex flex-col gap-3">
+<h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">person</span>
+              Detail Pasien
+            </h3>
+<div class="bg-slate-50 rounded-lg p-4 border border-slate-200"><div class="grid grid-cols-1 md:grid-cols-3 gap-4 pb-3 border-b border-slate-200 text-xs"><div><span class="text-slate-500 block mb-0.5">Nama Pasien:</span><span class="font-bold text-slate-900 text-sm">Budi Santoso</span></div><div><span class="text-slate-500 block mb-0.5">Usia / Jenis Kelamin:</span><span class="font-semibold text-slate-800">58 thn • Pria</span></div><div><span class="text-slate-500 block mb-0.5">No. Rekam Medis:</span><span class="font-mono font-semibold text-primary">RM-2026-0982</span></div></div><div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 text-xs"><div><span class="text-slate-500 block mb-0.5">Waktu Mulai:</span><span class="font-mono font-medium text-slate-700">16 Nov 2026, 08:30 WIB</span></div><div><span class="text-slate-500 block mb-0.5">Target Durasi:</span><span class="font-semibold text-slate-800">24 Jam Holter</span></div><div><span class="text-slate-500 block mb-0.5">Sisa Waktu Pemantauan:</span><div class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-600"></span><span class="font-mono font-bold text-emerald-700">18j 42m</span><span class="text-slate-400 text-[11px]">(Aktif)</span></div></div></div></div>
+</div>
+<!-- 2-Column: Detail Dokter & Kontak Darurat -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Sub-divider: Detail Dokter -->
+<div class="flex flex-col gap-2">
+<h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">stethoscope</span>
+                Detail Dokter
+              </h3>
+<div class="bg-slate-50 rounded-lg p-4 border border-slate-200 text-xs flex flex-col gap-1 h-full"><div class="grid grid-cols-1 md:grid-cols-3 gap-4 pb-3 border-b border-slate-200 text-xs"><div><span class="text-slate-500 block mb-0.5">Nama Pasien:</span><span class="font-bold text-slate-900 text-sm">Budi Santoso</span></div><div><span class="text-slate-500 block mb-0.5">Usia / Jenis Kelamin:</span><span class="font-semibold text-slate-800">58 thn • Pria</span></div><div><span class="text-slate-500 block mb-0.5">No. Rekam Medis:</span><span class="font-mono font-semibold text-primary">RM-2026-0982</span></div></div><div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 text-xs"><div><span class="text-slate-500 block mb-0.5">Waktu Mulai:</span><span class="font-mono font-medium text-slate-700">16 Nov 2026, 08:30 WIB</span></div><div><span class="text-slate-500 block mb-0.5">Target Durasi:</span><span class="font-semibold text-slate-800">24 Jam Holter</span></div><div><span class="text-slate-500 block mb-0.5">Sisa Waktu Pemantauan:</span><div class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-600"></span><span class="font-mono font-bold text-emerald-700">18j 42m</span><span class="text-slate-400 text-[11px]">(Aktif)</span></div></div></div></div>
+</div>
+<!-- Sub-divider: Kontak Darurat -->
+<div class="flex flex-col gap-2">
+<h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">phone_in_talk</span>
+                Kontak Darurat
+              </h3>
+<div class="bg-slate-50 rounded-lg p-4 border border-slate-200 text-xs flex flex-col gap-1 h-full"><div class="grid grid-cols-1 md:grid-cols-3 gap-4 pb-3 border-b border-slate-200 text-xs"><div><span class="text-slate-500 block mb-0.5">Nama Pasien:</span><span class="font-bold text-slate-900 text-sm">Budi Santoso</span></div><div><span class="text-slate-500 block mb-0.5">Usia / Jenis Kelamin:</span><span class="font-semibold text-slate-800">58 thn • Pria</span></div><div><span class="text-slate-500 block mb-0.5">No. Rekam Medis:</span><span class="font-mono font-semibold text-primary">RM-2026-0982</span></div></div><div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 text-xs"><div><span class="text-slate-500 block mb-0.5">Waktu Mulai:</span><span class="font-mono font-medium text-slate-700">16 Nov 2026, 08:30 WIB</span></div><div><span class="text-slate-500 block mb-0.5">Target Durasi:</span><span class="font-semibold text-slate-800">24 Jam Holter</span></div><div><span class="text-slate-500 block mb-0.5">Sisa Waktu Pemantauan:</span><div class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-600"></span><span class="font-mono font-bold text-emerald-700">18j 42m</span><span class="text-slate-400 text-[11px]">(Aktif)</span></div></div></div></div>
+</div>
+</div>
+</section>
+<!-- CARD 2: Device -->
+<!-- CARD 3: EKG Monitor -->
+<section class="bg-white rounded-xl border border-slate-200 p-6 flex flex-col gap-4"><!-- Top Monitor Control Row -->
+<div class="flex items-center justify-between gap-3">
+<div class="flex items-center gap-2">
+<span class="font-mono text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 border border-slate-200 text-slate-800">
+      SN: DK-K1-2026-042 (Telemetri DETAKITA K1)
+    </span>
+</div>
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 text-slate-700 text-xs font-mono border border-slate-200">
+      Filter: <strong class="text-primary font-semibold ml-1">Aktif (0.5 - 40 Hz)</strong>
+</span>
+<button class="inline-flex items-center gap-1.5 px-3 py-1 rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">pause</span>
+<span>Bekukan (Freeze)</span>
+</button>
+</div>
+</div>
+<!-- Diagnostic Dark Monitor Screen -->
+<div class="w-full bg-[#071322] rounded-xl overflow-hidden border border-slate-800 flex flex-col">
+<!-- Screen Header Controls -->
+<div class="bg-[#0f2438] px-5 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 text-xs">
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-[#00dfc1]"></span>
+<span class="font-bold text-white tracking-wide">Continuous Lead II Waveform Strip</span>
+</div>
+<div class="h-3 w-px bg-white/20"></div>
+<span class="font-mono text-white/70">25 mm/s</span>
+<span class="font-mono text-white/70">10 mm/mV</span>
+</div>
+<div class="font-mono text-[11px] text-teal-300">
+      Waktu Sinyal: 14:22:18 WIB • Standard AAMI Calibration
+    </div>
+</div>
+<!-- Waveform Canvas & Visual Strip -->
+<div class="relative w-full h-64 bg-[#050e18] overflow-hidden select-none">
+<!-- Grid Scale: 20px minor (1mm), 100px major (5mm) -->
+<div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: linear-gradient(to right, #24425e 1px, transparent 1px), linear-gradient(to bottom, #24425e 1px, transparent 1px); background-size: 20px 20px;"></div>
+<div class="absolute inset-0 opacity-15 pointer-events-none" style="background-image: linear-gradient(to right, #487299 1px, transparent 1px), linear-gradient(to bottom, #487299 1px, transparent 1px); background-size: 100px 100px;"></div>
+<!-- Top Right HUD Widget (Current HR 76 BPM & Sinus) -->
+<div class="absolute top-3 right-4 bg-[#0f2438]/95 border border-white/10 rounded-xl p-3 flex items-center gap-4 z-20">
+<div class="flex flex-col">
+<span class="font-mono text-[10px] uppercase text-white/60">Laju Detak Jantung</span>
+<div class="flex items-baseline gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[20px] text-red-500">favorite</span>
+<span class="font-mono text-2xl font-bold text-white">76</span>
+<span class="font-mono text-xs text-white/70">BPM</span>
+</div>
+</div>
+<div class="h-8 w-px bg-white/15"></div>
+<div class="flex flex-col">
+<span class="font-mono text-[10px] uppercase text-white/60">Irama</span>
+<span class="font-bold text-xs text-[#00dfc1] mt-0.5">Irama Sinus Normal</span>
+<span class="font-mono text-[10px] text-white/50">PR: 162ms • QRS: 88ms</span>
+</div>
+</div>
+<!-- Event Flag Banner on Waveform Strip -->
+<div class="absolute top-3 left-[58%] -translate-x-1/2 z-20 flex flex-col items-center">
+<div class="w-0.5 h-48 border-l border-dashed border-amber-400/80 mt-1"></div>
+</div>
+<!-- SVG Continuous ECG Waveform -->
+<div class="absolute inset-0 flex items-center">
+<svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1200 240">
+<path d="M 0 120 L 40 120 Q 50 112 60 120 L 75 120 L 80 125 L 90 28 L 98 155 L 105 120 L 125 120 Q 145 98 165 120 L 210 120 L 250 120 Q 260 112 270 120 L 285 120 L 290 125 L 300 28 L 308 155 L 315 120 L 335 120 Q 355 98 375 120 L 420 120 L 460 120 Q 470 112 480 120 L 495 120 L 500 125 L 510 28 L 518 155 L 525 120 L 545 120 Q 565 98 585 120 L 630 120 L 670 120 Q 678 108 688 120 L 702 120 L 708 135 L 718 18 L 728 168 L 735 120 L 755 120 Q 778 90 798 120 L 840 120 L 880 120 Q 890 112 900 120 L 915 120 L 920 125 L 930 28 L 938 155 L 945 120 L 965 120 Q 985 98 1005 120 L 1050 120 L 1090 120 Q 1100 112 1110 120 L 1125 120 L 1130 125 L 1140 28 L 1148 155 L 1155 120 L 1175 120 Q 1195 98 1215 120 L 1260 120" fill="none" stroke="#00dfc1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"></path>
+</svg>
+</div>
+<!-- Strip Calibration Details -->
+<div class="absolute bottom-2 left-4 z-20 flex items-center gap-4 font-mono text-[10px] text-white/50">
+<span>Skala: 10 mm/mV</span>
+<span>Lead Vector: II (+60°)</span>
+<span>Bandwidth: 0.5 - 40 Hz</span>
+</div>
+</div>
+</div>
+<!-- Device Telemetry Status Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+<!-- Battery -->
+<div class="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col justify-between">
+<div>
+<span class="text-xs text-slate-500 font-medium">Battery</span>
+<div class="flex items-baseline justify-between mt-1">
+<span class="font-mono text-2xl font-bold text-emerald-800">84%</span>
+<span class="text-xs text-slate-600 font-medium">±52 Jam</span>
+</div>
+<div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden mt-3">
+<div class="bg-emerald-600 h-full w-[84%]"></div>
+</div>
+</div>
+<span class="text-[11px] text-slate-500 mt-2 font-mono">Sisa Operasional: ±52 Jam</span>
+</div>
+<!-- Signal Quality -->
+<div class="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col justify-between">
+<div>
+<span class="text-xs text-slate-500 font-medium">Signal Quality</span>
+<div class="flex items-baseline justify-between mt-1">
+<span class="font-mono text-2xl font-bold text-emerald-800">99.8%</span>
+<span class="text-xs text-emerald-700 font-semibold">Sangat Baik</span>
+</div>
+<div class="flex items-center gap-1.5 mt-3">
+<span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+<span class="text-xs font-mono text-slate-700">-62 dBm</span>
+</div>
+</div>
+<span class="text-[11px] text-slate-500 mt-2 font-mono">Kehilangan Paket: 0%</span>
+</div>
+<!-- Konfigurasi Sadapan -->
+<div class="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col justify-between">
+<div>
+<span class="text-xs text-slate-500 font-medium">Konfigurasi Sadapan</span>
+<div class="font-headline font-bold text-sm text-slate-900 mt-1.5">3-Lead Einthoven</div>
+<span class="text-xs font-mono text-primary font-semibold mt-1 block">Vektor Lead II Utama</span>
+</div>
+<span class="text-[11px] text-slate-500 mt-2 font-mono">Elektroda Ag/AgCl Aktif</span>
+</div>
+<!-- Frekuensi Sampling -->
+<div class="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col justify-between">
+<div>
+<span class="text-xs text-slate-500 font-medium">Frekuensi Sampling</span>
+<div class="font-mono font-bold text-2xl text-slate-900 mt-1">250 Hz</div>
+<span class="text-xs text-slate-600 font-mono mt-1 block">Standar AAMI EC38</span>
+</div>
+<span class="text-[11px] text-slate-500 mt-2 font-mono">24-bit Low-Noise ADC</span>
+</div>
+</div></section><section class="bg-white rounded-xl border border-slate-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div class="flex items-center gap-3.5">
+<div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">neurology</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<h4 class="font-headline font-bold text-sm text-slate-900">Analisis Aritmia AI DETAKITA</h4>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">Model v2.4 Siap</span>
+</div>
+<p class="text-xs text-slate-500 mt-0.5">Deteksi otomatis morfologi kompleks QRS, ektopik ventrikel, dan anomali ritme real-time.</p>
+</div>
+</div>
+<div class="flex items-center gap-2.5 shrink-0">
+<button class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-teal-800 text-white font-headline text-xs font-semibold transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+<span>Jalankan Analisa AI</span>
+</button>
+</div>
+</section>
+<!-- CARD 4: Notes (Historical based on dokter and patient, infinite scroll) -->
+<section class="bg-white rounded-xl border border-slate-200 p-6 flex flex-col gap-5">
+<!-- Chronological Notes List -->
+<div class="flex flex-col gap-3">
+<!-- [14:22 WIB] Pasien -->
+<div class="p-4 rounded-lg bg-amber-50/70 border border-amber-200 flex flex-col gap-1.5 text-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-bold font-mono text-[10px] uppercase">
+                    Pasien
+                  </span>
+<span class="font-bold text-amber-950">Budi Santoso</span>
+</div>
+<span class="font-mono font-semibold text-amber-900">[14:22 WIB]</span>
+</div>
+<p class="text-amber-950 leading-relaxed">
+                Menekan tombol keluhan (Dada berdebar mendadak saat berjalan santai). AI mencatat takikardia transient 118 BPM.
+              </p>
+</div>
+<!-- [10:15 WIB] dr. Andi Pratama -->
+<div class="p-4 rounded-lg bg-slate-50 border border-slate-200 flex flex-col gap-1.5 text-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-primary/10 text-primary font-bold font-mono text-[10px] uppercase">
+                    Dokter DPJP
+                  </span>
+<span class="font-bold text-slate-900">dr. Andi Pratama, Sp.JP (K)</span>
+</div>
+<span class="font-mono text-slate-500">[10:15 WIB]</span>
+</div>
+<p class="text-slate-700 leading-relaxed">
+                Pasien diinstruksikan menjaga elektrode tetap kering dan mencatat aktivitas harian di log book.
+              </p>
+</div>
+<!-- [08:30 WIB] Perawat Siti -->
+<div class="p-4 rounded-lg bg-slate-50 border border-slate-200 flex flex-col gap-1.5 text-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-bold font-mono text-[10px] uppercase">
+                    Perawat
+                  </span>
+<span class="font-bold text-slate-900">Perawat Siti (Fast Intake)</span>
+</div>
+<span class="font-mono text-slate-500">[08:30 WIB]</span>
+</div>
+<p class="text-slate-700 leading-relaxed">
+                Pemasangan elektrode 3-lead selesai, impedansi kulit terverifikasi 98% optimal. Sesi 24 jam dimulai.
+              </p>
+</div>
+</div>
+<!-- Infinite scroll loading indicator -->
+<div class="pt-3 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500 font-mono">
+<span class="material-symbols-outlined text-[16px] text-primary">sync</span>
+<span>Memuat catatan riwayat sebelumnya...</span>
+</div>
+</section>
+</div>
+</main>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const userMenuBtn = document.getElementById('userMenuBtn');
+    const userDropupMenu = document.getElementById('userDropupMenu');
+    const userMenuContainer = document.getElementById('userMenuContainer');
+
+    if (userMenuBtn && userDropupMenu) {
+      userMenuBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const isHidden = userDropupMenu.classList.toggle('hidden');
+        userMenuBtn.setAttribute('aria-expanded', (!isHidden).toString());
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!userMenuContainer.contains(e.target)) {
+          if (!userDropupMenu.classList.contains('hidden')) {
+            userDropupMenu.classList.add('hidden');
+            userMenuBtn.setAttribute('aria-expanded', 'false');
+          }
+        }
+      });
+    }
+  });
+</script>
+
+
+
+
+
+
+</body></html>

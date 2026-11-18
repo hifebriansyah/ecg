@@ -1,0 +1,13 @@
+{
+  // DETAKITA REST API (worker/api.js). Deployed by: python3 ecg/tools/deploy_worker.py
+  "name": "ecg-api",
+  "main": "api.js",
+  "compatibility_date": "2025-09-01",
+  // D1 database "ecg"; its id is in db/d1.json (written by tools/setup_db.py).
+  "d1": { "binding": "DB", "name": "ecg" },
+  // Plain variables, set on every deploy. The secret INGEST_TOKEN (device key) is copied from .env ECG_INGEST_TOKEN.
+  "vars": {
+    "ALLOWED_ORIGINS": "*",
+    "AI_MODEL_VERSION": "v2.4"
+  }
+}

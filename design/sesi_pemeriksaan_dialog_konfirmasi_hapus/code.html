@@ -1,0 +1,826 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta content="web_dashboard" name="shell-type">
+<title>DETAKITA</title>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#005a64",
+            "primary-container": "#0b7480",
+            "background": "#f8f9ff",
+            "surface": "#f8f9ff",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#eff4ff",
+            "surface-container": "#e5eeff",
+            "on-surface": "#0b1c30",
+            "on-surface-variant": "#3e494a",
+            "outline-variant": "#bec8ca"
+          },
+          fontFamily: {
+            "body": ["IBM Plex Sans", "sans-serif"],
+            "headline": ["Plus Jakarta Sans", "sans-serif"],
+            "mono": ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+<style>* { box-shadow: none !important; text-shadow: none !important; }</style></head>
+<body class="bg-surface font-body text-on-surface antialiased h-screen overflow-hidden flex">
+<!-- Left Sidebar -->
+<aside class="w-64 h-full bg-surface-container-lowest border-r border-outline-variant/20 flex flex-col justify-between py-8 px-6 select-none shrink-0"><div class="flex flex-col gap-6">
+<!-- Top: DETAKITA Logo (brand mark + text) -->
+<div class="flex items-center gap-3 px-1">
+<div class="w-9 h-9 rounded-xl bg-primary-container flex items-center justify-center text-white shrink-0">
+<span class="material-symbols-outlined text-[20px]">ecg_heart</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-lg tracking-tight text-primary leading-tight">DETAKITA</span>
+
+</div>
+</div>
+<!-- Divider -->
+<div class="h-px bg-outline-variant/20 w-full"></div>
+<!-- Navigation Items -->
+<nav class="flex flex-col gap-1">
+<!-- 1. Dashboard -->
+<a class="flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span>Dashboard</span>
+</a><a class="flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-sm transition-colors" href="#"><span class="material-symbols-outlined text-[20px]">add_circle</span><span>Tambah Sesi</span></a>
+<!-- 2. Sesi Pemeriksaan -->
+<a class="flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-primary bg-primary/10 font-headline font-semibold text-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">vital_signs</span>
+<span>Sesi Pemeriksaan</span>
+</a><div class="flex flex-col ml-5 pl-3 border-l border-outline-variant/25 gap-1 mt-1 mb-1"><a class="flex items-center justify-between px-3 py-2 rounded-lg text-primary bg-primary/10 font-headline font-semibold text-xs transition-colors" href="#"><span class="flex items-center gap-2"><span>Berjalan</span></span><span class="px-1.5 py-0.5 rounded-full text-[10px] bg-primary text-white font-mono font-medium">12</span></a><a class="flex items-center justify-between px-3 py-2 rounded-lg text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-xs transition-colors" href="#"><span class="flex items-center gap-2"><span>Selesai</span></span><span class="px-1.5 py-0.5 rounded-full text-[10px] bg-surface-container text-on-surface-variant font-mono font-medium">48</span></a><a class="flex items-center justify-between px-3 py-2 rounded-lg text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-xs transition-colors" href="#"><span class="flex items-center gap-2"><span>Arsip</span></span></a></div>
+<!-- 3. Master Section -->
+<div class="mt-2 pt-1 flex flex-col">
+<div class="flex items-center gap-3.5 px-3.5 py-2 rounded-xl text-on-surface-variant/80 font-headline font-semibold text-sm">
+<span class="material-symbols-outlined text-[20px]">folder_shared</span>
+<span>Master Data</span>
+</div>
+<!-- Sub-items -->
+<div class="flex flex-col ml-5 pl-3 border-l border-outline-variant/25 gap-1 mt-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-xs transition-colors" href="#">
+
+<span>Dokter</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-xs transition-colors" href="#">
+
+<span>Perawat</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-xs transition-colors" href="#">
+
+<span>Pasien</span>
+</a>
+</div>
+</div>
+</nav>
+</div>
+<!-- Bottom Section -->
+<div class="flex flex-col gap-4">
+<!-- Divider -->
+<div class="h-px bg-outline-variant/20 w-full"></div>
+<!-- Bottom user menu container with Dropup -->
+<div class="relative" id="userMenuContainer">
+<!-- Dropup Popup Menu -->
+<div class="absolute bottom-full left-0 w-full mb-2 bg-surface-container-lowest rounded-xl border border-outline-variant/25 p-1.5 flex flex-col gap-0.5 z-50 transition-all duration-150 transform origin-bottom scale-95 opacity-0 hidden" id="userDropupMenu">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-xs transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">translate</span>
+<span>Bahasa</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-xs transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+<span>Setting</span>
+</a>
+<div class="h-px bg-outline-variant/20 my-1 mx-1"></div>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50/80 font-headline font-medium text-xs transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+<span>Logout</span>
+</a>
+</div>
+<!-- User Toggle Button -->
+<button class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-container-low font-headline font-medium text-sm transition-colors focus:outline-none" id="userMenuBtn" type="button"><div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-headline font-bold text-xs shrink-0">
+IN
+</div>
+<div class="flex flex-col text-left leading-tight">
+<span class="font-headline font-semibold text-sm text-on-surface">Inara</span>
+<span class="text-[10px] font-medium text-on-surface-variant/70">Admin</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant/50 transition-transform duration-200" id="userChevron">expand_less</span></button>
+</div>
+<!-- Status indicator -->
+</div></aside>
+<!-- Completely Clean & Blank Canvas Main Area (No Top Header, Spacious Neutral Slate Canvas) -->
+<main class="flex-1 h-full bg-[#f8f9ff] overflow-auto"><div class="p-8 max-w-[1600px] mx-auto flex flex-col gap-6">
+<!-- Top Header Area -->
+<!-- 1. Header Card (top) -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-6 mb-4 flex items-center justify-between gap-4">
+  <div class="flex items-center gap-3">
+    <h1 class="text-2xl font-bold font-headline text-on-surface tracking-tight">Sesi Pemeriksaan</h1>
+    <span class="bg-surface-container text-primary text-xs px-2.5 py-0.5 rounded-full font-semibold font-mono">12 Berjalan</span>
+  </div>
+  <button class="bg-primary-container text-white font-semibold px-4 py-2 rounded-lg hover:bg-primary transition-colors inline-flex items-center gap-2 cursor-pointer font-headline text-xs" type="button">
+    <span class="material-symbols-outlined text-[18px]">add</span>
+    
+  </button>
+</div>
+
+<!-- 2. Filter & Search Card (bottom) -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-6 mb-6 flex flex-col gap-4">
+  <!-- First row: Search input + Filter button -->
+  <div class="flex items-center gap-3">
+    <div class="relative flex-1">
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 text-[18px]">search</span>
+      <input class="w-full pl-9 pr-4 py-2 text-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-on-surface placeholder:text-on-surface-variant/50" placeholder="Cari nama pasien, no. RM, atau kamar..." type="text">
+    </div>
+    <button class="w-10 h-10 shrink-0 border border-outline-variant/30 rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center justify-center transition-colors" title="Filter" type="button">
+      <span class="material-symbols-outlined text-[20px]">tune</span>
+    </button>
+  </div>
+  <!-- Second row: Active filter chips + Reset -->
+  <div class="flex flex-wrap items-center gap-2 pt-0.5">
+    <div class="inline-flex items-center rounded-xl bg-surface-container-low/70 border border-outline-variant/30 text-on-surface text-xs font-headline font-medium pl-2.5 pr-1.5 py-1 gap-1.5">
+      <span class="text-on-surface-variant/70 text-[11px]">Status:</span>
+      <span class="font-semibold text-primary">Berjalan</span>
+      <button class="p-0.5 text-on-surface-variant/50 hover:text-red-600 rounded transition-colors" title="Hapus filter status" type="button">
+        <span class="material-symbols-outlined text-[14px]">close</span>
+      </button>
+    </div>
+    <div class="inline-flex items-center rounded-xl bg-surface-container-low/70 border border-outline-variant/30 text-on-surface text-xs font-headline font-medium pl-2.5 pr-1.5 py-1 gap-1.5">
+      <span class="text-on-surface-variant/70 text-[11px]">Lead:</span>
+      <span class="font-semibold text-primary">Lead II</span>
+      <button class="p-0.5 text-on-surface-variant/50 hover:text-red-600 rounded transition-colors" title="Hapus filter lead" type="button">
+        <span class="material-symbols-outlined text-[14px]">close</span>
+      </button>
+    </div>
+    <div class="inline-flex items-center rounded-xl bg-surface-container-low/70 border border-outline-variant/30 text-on-surface text-xs font-headline font-medium pl-2.5 pr-1.5 py-1 gap-1.5">
+      <span class="text-on-surface-variant/70 text-[11px]">Interval:</span>
+      <span class="font-semibold text-primary">5s</span>
+      <button class="p-0.5 text-on-surface-variant/50 hover:text-red-600 rounded transition-colors" title="Hapus filter interval" type="button">
+        <span class="material-symbols-outlined text-[14px]">close</span>
+      </button>
+    </div>
+    <button class="text-xs font-headline font-medium text-on-surface-variant/70 hover:text-primary transition-colors px-2 py-1 focus:outline-none ml-1" type="button">Reset</button>
+  </div>
+</div>
+<!-- Tab Navigation & Quick Search Bar -->
+
+<!-- Table Card View -->
+<div class="bg-surface-container-lowest border border-outline-variant/25 rounded-2xl overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/70 border-b border-outline-variant/20 text-on-surface-variant font-headline text-xs font-semibold uppercase tracking-wider">
+<th class="py-3.5 px-5 w-14 text-center"><div class="flex items-center justify-center"><input aria-label="Pilih semua sesi" class="w-4 h-4 rounded text-primary border-outline-variant/50 focus:ring-primary/20 focus:ring-2 cursor-pointer transition-all" id="selectAllCheckbox" type="checkbox"></div></th>
+<th class="py-3.5 px-6 min-w-[240px]">Nama Pasien</th>
+<th class="py-3.5 px-6 min-w-[190px]">Tanggal</th>
+<th class="py-3.5 px-6 min-w-[360px]">GARIS EKG</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/15 text-sm" id="sessionTableBody">
+<!-- Row 1: Budi Santoso -->
+<tr class="hover:bg-surface-container-low/40 transition-colors group" data-patient-name="Budi Santoso" data-patient-rm="RM-2026-0982">
+<td class="py-4 px-5 text-center w-14"><div class="flex items-center justify-center"><input aria-label="Pilih baris" class="row-checkbox w-4 h-4 rounded text-primary border-outline-variant/50 focus:ring-primary/20 focus:ring-2 cursor-pointer transition-all" type="checkbox"></div></td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-primary/10 text-primary font-headline font-semibold text-xs flex items-center justify-center shrink-0">
+                  BS
+                </div>
+<div class="flex flex-col">
+<span class="font-headline font-semibold text-on-surface group-hover:text-primary transition-colors text-sm">Budi Santoso</span>
+<span class="font-mono text-xs text-on-surface-variant/70">RM-2026-0982 • 58 th (L)</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex flex-col">
+<span class="font-medium text-on-surface text-xs">16 Nov 2026</span>
+<span class="font-mono text-[11px] text-on-surface-variant/70">08:30:14 WIB</span>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-4 bg-[#0a1826] rounded-xl p-2.5 border border-[#1b2b3a]">
+<div class="flex-1 h-10 overflow-hidden relative flex items-center">
+<svg class="w-full h-full stroke-emerald-400 fill-none" preserveAspectRatio="none" viewBox="0 0 300 40">
+<path d="M0,20 L30,20 L35,16 L40,24 L45,20 L60,20 L65,18 L70,22 L75,20 L85,20 L90,6 L95,36 L100,12 L105,24 L110,20 L130,20 L140,16 L148,22 L155,20 L180,20 L185,8 L190,34 L195,14 L200,22 L205,20 L230,20 L238,17 L245,22 L250,20 L275,20 L280,8 L285,34 L290,14 L295,22 L300,20" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+</svg>
+</div>
+<div class="flex flex-col items-end shrink-0 pl-2 border-l border-white/10">
+<div class="flex items-baseline gap-1">
+<span class="font-mono font-bold text-base text-emerald-400 leading-none">76</span>
+<span class="text-[10px] text-white/60 font-mono">BPM</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-mono text-emerald-300/80 font-medium mt-0.5">Normal Sinus</span>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 2: Siti Rahmawati -->
+<tr class="hover:bg-surface-container-low/40 transition-colors group bg-primary/5" data-patient-name="Siti Rahmawati" data-patient-rm="RM-2026-1044">
+<td class="py-4 px-5 text-center w-14"><div class="flex items-center justify-center"><input aria-label="Pilih baris" class="row-checkbox w-4 h-4 rounded text-primary border-outline-variant/50 focus:ring-primary/20 focus:ring-2 cursor-pointer transition-all" type="checkbox"></div></td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-teal-100 text-teal-800 font-headline font-semibold text-xs flex items-center justify-center shrink-0">
+                  SR
+                </div>
+<div class="flex flex-col">
+<span class="font-headline font-semibold text-on-surface group-hover:text-primary transition-colors text-sm">Siti Rahmawati</span>
+<span class="font-mono text-xs text-on-surface-variant/70">RM-2026-1044 • 62 th (P)</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex flex-col">
+<span class="font-medium text-on-surface text-xs">16 Nov 2026</span>
+<span class="font-mono text-[11px] text-on-surface-variant/70">09:15:32 WIB</span>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-4 bg-[#0a1826] rounded-xl p-2.5 border border-[#1b2b3a]">
+<div class="flex-1 h-10 overflow-hidden relative flex items-center">
+<svg class="w-full h-full stroke-emerald-400 fill-none" preserveAspectRatio="none" viewBox="0 0 300 40">
+<path d="M0,20 L25,20 L30,16 L35,23 L40,20 L55,20 L60,8 L64,35 L69,11 L74,23 L79,20 L105,20 L110,16 L115,22 L120,20 L135,20 L140,8 L144,35 L149,11 L154,23 L159,20 L185,20 L190,16 L195,22 L200,20 L215,20 L220,8 L224,35 L229,11 L234,23 L239,20 L265,20 L270,16 L275,22 L280,20 L295,20 L300,8" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+</svg>
+</div>
+<div class="flex flex-col items-end shrink-0 pl-2 border-l border-white/10">
+<div class="flex items-baseline gap-1">
+<span class="font-mono font-bold text-base text-emerald-400 leading-none">84</span>
+<span class="text-[10px] text-white/60 font-mono">BPM</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-mono text-emerald-300/80 font-medium mt-0.5">Stabil 250Hz</span>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 3: Ahmad Dahlan -->
+<tr class="hover:bg-surface-container-low/40 transition-colors group" data-patient-name="Ahmad Dahlan" data-patient-rm="RM-2026-1089">
+<td class="py-4 px-5 text-center w-14"><div class="flex items-center justify-center"><input aria-label="Pilih baris" class="row-checkbox w-4 h-4 rounded text-primary border-outline-variant/50 focus:ring-primary/20 focus:ring-2 cursor-pointer transition-all" type="checkbox"></div></td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-cyan-100 text-cyan-800 font-headline font-semibold text-xs flex items-center justify-center shrink-0">
+                  AD
+                </div>
+<div class="flex flex-col">
+<span class="font-headline font-semibold text-on-surface group-hover:text-primary transition-colors text-sm">Ahmad Dahlan</span>
+<span class="font-mono text-xs text-on-surface-variant/70">RM-2026-1089 • 45 th (L)</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex flex-col">
+<span class="font-medium text-on-surface text-xs">16 Nov 2026</span>
+<span class="font-mono text-[11px] text-on-surface-variant/70">11:00:08 WIB</span>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-4 bg-[#0a1826] rounded-xl p-2.5 border border-[#1b2b3a]">
+<div class="flex-1 h-10 overflow-hidden relative flex items-center">
+<svg class="w-full h-full stroke-cyan-400 fill-none" preserveAspectRatio="none" viewBox="0 0 300 40">
+<path d="M0,20 L35,20 L40,16 L45,23 L50,20 L75,20 L80,7 L85,35 L90,12 L95,24 L100,20 L135,20 L140,16 L145,23 L150,20 L175,20 L180,7 L185,35 L190,12 L195,24 L200,20 L235,20 L240,16 L245,23 L250,20 L275,20 L280,7 L285,35 L290,12 L295,24 L300,20" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+</svg>
+</div>
+<div class="flex flex-col items-end shrink-0 pl-2 border-l border-white/10">
+<div class="flex items-baseline gap-1">
+<span class="font-mono font-bold text-base text-cyan-400 leading-none">68</span>
+<span class="text-[10px] text-white/60 font-mono">BPM</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-mono text-cyan-300/80 font-medium mt-0.5">Sinus Brady</span>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 4: Hendra Wijaya -->
+<tr class="hover:bg-surface-container-low/40 transition-colors group" data-patient-name="Hendra Wijaya" data-patient-rm="RM-2026-1102">
+<td class="py-4 px-5 text-center w-14"><div class="flex items-center justify-center"><input aria-label="Pilih baris" class="row-checkbox w-4 h-4 rounded text-primary border-outline-variant/50 focus:ring-primary/20 focus:ring-2 cursor-pointer transition-all" type="checkbox"></div></td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-amber-100 text-amber-800 font-headline font-semibold text-xs flex items-center justify-center shrink-0">
+                  HW
+                </div>
+<div class="flex flex-col">
+<span class="font-headline font-semibold text-on-surface group-hover:text-primary transition-colors text-sm">Hendra Wijaya</span>
+<span class="font-mono text-xs text-on-surface-variant/70">RM-2026-1102 • 51 th (L)</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex flex-col">
+<span class="font-medium text-on-surface text-xs">16 Nov 2026</span>
+<span class="font-mono text-[11px] text-on-surface-variant/70">11:45:20 WIB</span>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-4 bg-[#0a1826] rounded-xl p-2.5 border border-[#1b2b3a]">
+<div class="flex-1 h-10 overflow-hidden relative flex items-center">
+<svg class="w-full h-full stroke-amber-400 fill-none" preserveAspectRatio="none" viewBox="0 0 300 40">
+<path d="M0,20 L20,20 L24,15 L28,24 L32,20 L44,20 L48,6 L52,36 L56,10 L60,24 L64,20 L84,20 L88,15 L92,24 L96,20 L108,20 L112,6 L116,36 L120,10 L124,24 L128,20 L148,20 L152,15 L156,24 L160,20 L172,20 L176,6 L180,36 L184,10 L188,24 L192,20 L212,20 L216,15 L220,24 L224,20 L236,20 L240,6 L244,36 L248,10 L252,24 L256,20 L276,20 L280,15 L284,24 L288,20 L300,20" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+</svg>
+</div>
+<div class="flex flex-col items-end shrink-0 pl-2 border-l border-white/10">
+<div class="flex items-baseline gap-1">
+<span class="font-mono font-bold text-base text-amber-400 leading-none">92</span>
+<span class="text-[10px] text-white/60 font-mono">BPM</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-mono text-amber-300/80 font-medium mt-0.5">Elevated</span>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 5: Nurul Aini -->
+<tr class="hover:bg-surface-container-low/40 transition-colors group" data-patient-name="Nurul Aini" data-patient-rm="RM-2026-1120">
+<td class="py-4 px-5 text-center w-14"><div class="flex items-center justify-center"><input aria-label="Pilih baris" class="row-checkbox w-4 h-4 rounded text-primary border-outline-variant/50 focus:ring-primary/20 focus:ring-2 cursor-pointer transition-all" type="checkbox"></div></td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-headline font-semibold text-xs flex items-center justify-center shrink-0">
+                  NA
+                </div>
+<div class="flex flex-col">
+<span class="font-headline font-semibold text-on-surface group-hover:text-primary transition-colors text-sm">Nurul Aini</span>
+<span class="font-mono text-xs text-on-surface-variant/70">RM-2026-1120 • 67 th (P)</span>
+</div>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex flex-col">
+<span class="font-medium text-on-surface text-xs">16 Nov 2026</span>
+<span class="font-mono text-[11px] text-on-surface-variant/70">13:10:45 WIB</span>
+</div>
+</td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-4 bg-[#0a1826] rounded-xl p-2.5 border border-[#1b2b3a]">
+<div class="flex-1 h-10 overflow-hidden relative flex items-center">
+<svg class="w-full h-full stroke-emerald-400 fill-none" preserveAspectRatio="none" viewBox="0 0 300 40">
+<path d="M0,20 L30,20 L35,16 L40,24 L45,20 L60,20 L65,18 L70,22 L75,20 L85,20 L90,6 L95,36 L100,12 L105,24 L110,20 L130,20 L140,16 L148,22 L155,20 L180,20 L185,8 L190,34 L195,14 L200,22 L205,20 L230,20 L238,17 L245,22 L250,20 L275,20 L280,8 L285,34 L290,14 L295,22 L300,20" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+</svg>
+</div>
+<div class="flex flex-col items-end shrink-0 pl-2 border-l border-white/10">
+<div class="flex items-baseline gap-1">
+<span class="font-mono font-bold text-base text-emerald-400 leading-none">74</span>
+<span class="text-[10px] text-white/60 font-mono">BPM</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-mono text-emerald-300/80 font-medium mt-0.5">Normal Sinus</span>
+</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Footer / Pagination -->
+
+</div>
+</div></main>
+<script>
+  const userMenuBtn = document.getElementById('userMenuBtn');
+  const userDropupMenu = document.getElementById('userDropupMenu');
+  const userChevron = document.getElementById('userChevron');
+
+  function openMenu() {
+    userDropupMenu.classList.remove('hidden');
+    // slight delay for smooth transition
+    requestAnimationFrame(() => {
+      userDropupMenu.classList.remove('scale-95', 'opacity-0');
+      userDropupMenu.classList.add('scale-100', 'opacity-100');
+    });
+    userChevron.classList.add('rotate-180');
+    userMenuBtn.classList.add('bg-surface-container-low', 'text-on-surface');
+  }
+
+  function closeMenu() {
+    userDropupMenu.classList.remove('scale-100', 'opacity-100');
+    userDropupMenu.classList.add('scale-95', 'opacity-0');
+    userChevron.classList.remove('rotate-180');
+    userMenuBtn.classList.remove('bg-surface-container-low', 'text-on-surface');
+    setTimeout(() => {
+      if (userDropupMenu.classList.contains('scale-95')) {
+        userDropupMenu.classList.add('hidden');
+      }
+    }, 150);
+  }
+
+  userMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isClosed = userDropupMenu.classList.contains('hidden');
+    if (isClosed) {
+      openMenu();
+    } else {
+      closeMenu();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!userDropupMenu.contains(e.target) && !userMenuBtn.contains(e.target)) {
+      if (!userDropupMenu.classList.contains('hidden')) {
+        closeMenu();
+      }
+    }
+  });
+</script>
+<!-- Floating Action Bar -->
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 transform transition-all duration-300 flex items-center translate-y-0 opacity-100" id="floatingActionBar"><div class="bg-[#0b1c30]/90 backdrop-blur-md text-white px-4 py-2.5 rounded-full border border-white/10 flex items-center gap-4 pointer-events-auto ring-1 ring-black/20">
+  <!-- Counter Badge -->
+  <div class="flex items-center gap-2 pl-1 pr-3 border-r border-white/15">
+    <span class="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-mono font-bold text-white" id="selectedBadgeCount">1</span>
+    
+  </div>
+
+  <!-- Actions Group -->
+  <div class="flex items-center gap-1.5">
+    <!-- Selesai Button -->
+    <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/90 hover:text-emerald-400 hover:bg-emerald-500/20 font-headline text-xs font-medium transition-all" id="bulkCompleteBtn" type="button">
+      <span class="material-symbols-outlined text-[16px]">task_alt</span>
+      <span>Selesai</span>
+    </button>
+
+    <!-- Arsip Button -->
+    <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-white/10 text-white/90 hover:text-white font-headline text-xs font-medium transition-all" id="bulkArchiveBtn" type="button">
+      <span class="material-symbols-outlined text-[16px]">archive</span>
+      <span>Arsip</span>
+    </button>
+
+    <!-- Subtle Vertical Divider -->
+    <div class="w-px h-4 bg-white/15 mx-1"></div>
+
+    <!-- Hapus: Icon-only Destructive Button -->
+    <button class="w-8 h-8 rounded-full flex items-center justify-center text-white/60 hover:text-red-400 hover:bg-red-500/30 transition-all" id="bulkDeleteBtn" title="Hapus" aria-label="Hapus" type="button">
+      <span class="material-symbols-outlined text-[18px]">delete</span>
+    </button>
+  </div>
+
+  <!-- Subtle Vertical Divider before Close -->
+  <div class="w-px h-4 bg-white/15"></div>
+
+  <!-- Close / Clear Selection Button -->
+  <button class="p-1 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition-colors" id="clearSelectionBtn" title="Batalkan pilihan" type="button">
+    <span class="material-symbols-outlined text-[18px]">close</span>
+  </button>
+</div></div>
+<!-- Modal Dialog Konfirmasi Penghapusan -->
+
+<!-- Notification Toast Feedback -->
+<div class="fixed top-6 right-6 z-50 transform transition-all duration-300 translate-y-[-20px] opacity-0 pointer-events-none flex items-center gap-3 bg-surface-container-lowest border border-emerald-200/80 text-on-surface px-4 py-3 rounded-2xl" id="successToast">
+<div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+</div>
+<div class="flex flex-col pr-2">
+<span class="font-headline font-semibold text-xs text-on-surface">Berhasil Dihapus</span>
+<span class="text-[11px] text-on-surface-variant" id="toastMessage">Sesi pemeriksaan telah dihapus secara permanen.</span>
+</div>
+</div>
+<script>
+  const masterCheckbox = document.getElementById('selectAllCheckbox');
+  const floatingBar = document.getElementById('floatingActionBar');
+  const selectedCountLabel = document.getElementById('selectedCountLabel');
+  const selectedBadgeCount = document.getElementById('selectedBadgeCount');
+  const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+  const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+
+  // Modal Elements
+  const deleteModalBackdrop = document.getElementById('deleteModalBackdrop');
+  const deleteModalContainer = document.getElementById('deleteModalContainer');
+  const closeModalCrossBtn = document.getElementById('closeModalCrossBtn');
+  const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+  const modalCountHighlight = document.getElementById('modalCountHighlight');
+  const modalPatientPreviewList = document.getElementById('modalPatientPreviewList');
+  const successToast = document.getElementById('successToast');
+  const toastMessage = document.getElementById('toastMessage');
+
+  function getRowCheckboxes() {
+    return document.querySelectorAll('.row-checkbox');
+  }
+
+  function updateFloatingBar() {
+    const rowCheckboxes = getRowCheckboxes();
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const count = checkedBoxes.length;
+
+    if (count > 0) {
+      selectedBadgeCount.textContent = count;
+      selectedCountLabel.textContent = count + ' sesi terpilih';
+      floatingBar.classList.remove('pointer-events-none', 'translate-y-12', 'opacity-0');
+      floatingBar.classList.add('translate-y-0', 'opacity-100');
+    } else {
+      floatingBar.classList.remove('translate-y-0', 'opacity-100');
+      floatingBar.classList.add('pointer-events-none', 'translate-y-12', 'opacity-0');
+    }
+
+    if (masterCheckbox) {
+      masterCheckbox.checked = count > 0 && count === rowCheckboxes.length;
+      masterCheckbox.indeterminate = count > 0 && count < rowCheckboxes.length;
+    }
+
+    rowCheckboxes.forEach(cb => {
+      const row = cb.closest('tr');
+      if (row) {
+        if (cb.checked) {
+          row.classList.add('bg-primary/5');
+        } else {
+          row.classList.remove('bg-primary/5');
+        }
+      }
+    });
+  }
+
+  function bindCheckboxEvents() {
+    const rowCheckboxes = getRowCheckboxes();
+    rowCheckboxes.forEach(cb => {
+      cb.removeEventListener('change', updateFloatingBar);
+      cb.addEventListener('change', updateFloatingBar);
+    });
+  }
+
+  if (masterCheckbox) {
+    masterCheckbox.addEventListener('change', (e) => {
+      const rowCheckboxes = getRowCheckboxes();
+      rowCheckboxes.forEach(cb => {
+        cb.checked = e.target.checked;
+      });
+      updateFloatingBar();
+    });
+  }
+
+  if (clearSelectionBtn) {
+    clearSelectionBtn.addEventListener('click', () => {
+      const rowCheckboxes = getRowCheckboxes();
+      rowCheckboxes.forEach(cb => {
+        cb.checked = false;
+      });
+      if (masterCheckbox) {
+        masterCheckbox.checked = false;
+        masterCheckbox.indeterminate = false;
+      }
+      updateFloatingBar();
+    });
+  }
+
+  // Modal Open / Close Logic
+  function openDeleteModal() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const count = checkedBoxes.length;
+    if (count === 0) return;
+
+    modalCountHighlight.textContent = count;
+
+    // Populate preview of patient names being deleted
+    modalPatientPreviewList.innerHTML = '';
+    checkedBoxes.forEach((cb) => {
+      const row = cb.closest('tr');
+      if (row) {
+        const pName = row.getAttribute('data-patient-name') || 'Pasien';
+        const pRm = row.getAttribute('data-patient-rm') || '';
+        const tag = document.createElement('span');
+        tag.className = 'px-2 py-0.5 rounded-md bg-red-100/80 border border-red-200 text-red-900 text-[10px]';
+        tag.textContent = pName + (pRm ? ' (' + pRm + ')' : '');
+        modalPatientPreviewList.appendChild(tag);
+      }
+    });
+
+    deleteModalBackdrop.classList.remove('pointer-events-none', 'opacity-0');
+    deleteModalBackdrop.classList.add('opacity-100');
+    requestAnimationFrame(() => {
+      deleteModalContainer.classList.remove('scale-95', 'opacity-0');
+      deleteModalContainer.classList.add('scale-100', 'opacity-100');
+    });
+  }
+
+  function closeDeleteModal() {
+    deleteModalContainer.classList.remove('scale-100', 'opacity-100');
+    deleteModalContainer.classList.add('scale-95', 'opacity-0');
+    deleteModalBackdrop.classList.remove('opacity-100');
+    deleteModalBackdrop.classList.add('opacity-0');
+    setTimeout(() => {
+      deleteModalBackdrop.classList.add('pointer-events-none');
+    }, 200);
+  }
+
+  function showToast(msg) {
+    if (toastMessage) toastMessage.textContent = msg;
+    successToast.classList.remove('pointer-events-none', 'translate-y-[-20px]', 'opacity-0');
+    successToast.classList.add('translate-y-0', 'opacity-100');
+    setTimeout(() => {
+      successToast.classList.remove('translate-y-0', 'opacity-100');
+      successToast.classList.add('translate-y-[-20px]', 'opacity-0');
+      setTimeout(() => {
+        successToast.classList.add('pointer-events-none');
+      }, 300);
+    }, 3500);
+  }
+
+  if (bulkDeleteBtn) {
+    bulkDeleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDeleteModal();
+    });
+  }
+
+  if (cancelDeleteBtn) {
+    cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+  }
+
+  if (closeModalCrossBtn) {
+    closeModalCrossBtn.addEventListener('click', closeDeleteModal);
+  }
+
+  // Click outside backdrop to close
+  deleteModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === deleteModalBackdrop) {
+      closeDeleteModal();
+    }
+  });
+
+  // Escape key support
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !deleteModalBackdrop.classList.contains('pointer-events-none')) {
+      closeDeleteModal();
+    }
+  });
+
+  // Action: Confirm Delete
+  if (confirmDeleteBtn) {
+    confirmDeleteBtn.addEventListener('click', () => {
+      const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+      const count = checkedBoxes.length;
+
+      // Animate out & remove rows
+      checkedBoxes.forEach(cb => {
+        const row = cb.closest('tr');
+        if (row) {
+          row.style.transition = 'all 0.3s ease';
+          row.style.opacity = '0';
+          row.style.transform = 'translateX(20px)';
+          setTimeout(() => {
+            row.remove();
+            bindCheckboxEvents();
+            updateFloatingBar();
+          }, 300);
+        }
+      });
+
+      closeDeleteModal();
+      showToast(`${count} sesi pemeriksaan berhasil dihapus.`);
+    });
+  }
+
+  bindCheckboxEvents();
+</script>
+
+
+
+
+<script>
+  (function initFilterBar() {
+    const addFilterBtn = document.getElementById('addFilterBtn');
+    const addFilterMenu = document.getElementById('addFilterMenu');
+    const addFilterWrapper = document.getElementById('addFilterWrapper');
+
+    const filterDimensions = {
+      gender: { label: 'Gender', defaultVal: 'Pria', options: ['Pria', 'Wanita'] },
+      umur: { label: 'Umur', defaultVal: '>50 thn', options: ['>50 thn', '>60 thn', '>65 thn', '>70 thn'] },
+      interval: { label: 'Interval', defaultVal: '5s', options: ['5s', '10s', '15s'] }
+    };
+
+    function closeAllMenus() {
+      if (addFilterMenu && !addFilterMenu.classList.contains('hidden')) {
+        addFilterMenu.classList.remove('scale-100', 'opacity-100');
+        addFilterMenu.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => addFilterMenu.classList.add('hidden'), 150);
+      }
+      document.querySelectorAll('[id^="chipMenu-"]').forEach(menu => {
+        if (!menu.classList.contains('hidden')) {
+          menu.classList.remove('scale-100', 'opacity-100');
+          menu.classList.add('scale-95', 'opacity-0');
+          setTimeout(() => menu.classList.add('hidden'), 150);
+        }
+      });
+    }
+
+    if (addFilterBtn && addFilterMenu) {
+      addFilterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isClosed = addFilterMenu.classList.contains('hidden');
+        closeAllMenus();
+        if (isClosed) {
+          addFilterMenu.classList.remove('hidden');
+          requestAnimationFrame(() => {
+            addFilterMenu.classList.remove('scale-95', 'opacity-0');
+            addFilterMenu.classList.add('scale-100', 'opacity-100');
+          });
+        }
+      });
+    }
+
+    // Click filter dimension option to show or focus chip
+    document.addEventListener('click', (e) => {
+      const optionBtn = e.target.closest('[data-filter-type]');
+      if (optionBtn) {
+        e.stopPropagation();
+        const type = optionBtn.getAttribute('data-filter-type');
+        const chip = document.getElementById(`chip-${type}`);
+        if (chip) {
+          chip.classList.remove('hidden');
+        }
+        closeAllMenus();
+      }
+    });
+
+    // Toggle chip value sub-menus
+    ['gender', 'umur', 'interval'].forEach(type => {
+      const btn = document.getElementById(`chipValueBtn-${type}`);
+      const menu = document.getElementById(`chipMenu-${type}`);
+      if (btn && menu) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isClosed = menu.classList.contains('hidden');
+          closeAllMenus();
+          if (isClosed) {
+            menu.classList.remove('hidden');
+            requestAnimationFrame(() => {
+              menu.classList.remove('scale-95', 'opacity-0');
+              menu.classList.add('scale-100', 'opacity-100');
+            });
+          }
+        });
+      }
+    });
+
+    // Handle selecting an option value from chip menu
+    document.addEventListener('click', (e) => {
+      const valBtn = e.target.closest('[data-option-type]');
+      if (valBtn) {
+        e.stopPropagation();
+        const type = valBtn.getAttribute('data-option-type');
+        const val = valBtn.getAttribute('data-option-value');
+        const labelSpan = document.getElementById(`chipValueText-${type}`);
+        if (labelSpan) {
+          labelSpan.textContent = val;
+        }
+        const parentMenu = document.getElementById(`chipMenu-${type}`);
+        if (parentMenu) {
+          parentMenu.querySelectorAll('[data-option-value]').forEach(b => {
+            if (b === valBtn) {
+              b.classList.add('text-primary', 'bg-primary/5');
+              b.classList.remove('text-on-surface');
+            } else {
+              b.classList.remove('text-primary', 'bg-primary/5');
+              b.classList.add('text-on-surface');
+            }
+          });
+        }
+        closeAllMenus();
+      }
+    });
+
+    // Remove chip button
+    document.addEventListener('click', (e) => {
+      const removeBtn = e.target.closest('[data-remove-filter]');
+      if (removeBtn) {
+        e.stopPropagation();
+        const type = removeBtn.getAttribute('data-remove-filter');
+        const chip = document.getElementById(`chip-${type}`);
+        if (chip) {
+          chip.classList.add('hidden');
+        }
+      }
+    });
+
+    // Close on document click outside
+    document.addEventListener('click', () => {
+      closeAllMenus();
+    });
+  })();
+</script>
+
+
+
+
+
+
+
+
+
+</body></html>
