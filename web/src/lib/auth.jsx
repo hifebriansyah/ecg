@@ -47,10 +47,12 @@ export function AuthProvider({ children }) {
     setStatus('guest');
   }, []);
 
+  const refreshUser = useCallback(async () => { setUser(await api('/me')); }, []);
+
   const value = useMemo(() => ({
-    user, status, login, logout,
+    user, status, login, logout, refreshUser,
     can: (perm) => !!user?.permissions?.includes(perm),
-  }), [user, status, login, logout]);
+  }), [user, status, login, logout, refreshUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

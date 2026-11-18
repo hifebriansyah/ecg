@@ -7,7 +7,8 @@ Admin web for the DETAKITA Holter ECG telemedicine service: master data (doctors
 - `design/` — screen designs (HTML + screenshot per screen): doctor/nurse/patient lists and edit forms, "Tambah Sesi", session list with delete dialog, session detail.
 - `db/schema.sql` — database schema built from those screens, deployed to Cloudflare D1 as `ecg`.
 - `worker/api.js` — the REST API (Cloudflare Worker `ecg-api`), live at the address in `worker/api-url.txt`, with logins for three roles: Admin, Dokter, Perawat.
-- `web/` — the web app (React 19, React Router 7, Tailwind 4, Vite). So far: the login screen and a placeholder home page.
+- `web/` — the web app (React 19, React Router 7, Tailwind 4, Vite, Lucide icons) with every screen from `design/`, wired to the live API, plus a Storybook.
+- `tools/seed_demo.py` — fills the database with the doctors, nurses, patients and sessions shown in the designs (synthetic ECG).
 - `tools/setup_db.py` — creates the D1 database and applies the schema.
 - `tools/deploy_worker.py` — uploads the API Worker. `tools/create_admin.py` — creates/resets an admin login. `tools/create_demo_logins.py` — Dokter/Perawat test logins and the login-screen autofill.
 
@@ -15,7 +16,42 @@ Repository: `github.com/hifebriansyah/ecg` (public). The tools read Cloudflare k
 
 ## Web app
 
-Run locally through Apache at **http://localhost/for-fun/ecg/** (from this `ecg` folder):
+### Screens
+
+| Route | Screen (design) | Notes |
+|---|---|---|
+| `/login` | Masuk | role picker, autofill of test logins (see below) |
+| `/` | Dashboard | not in the designs: counts per status, the newest running sessions with their ECG |
+| `/sesi/baru` | Tambah Sesi Pemeriksaan | Admin & Perawat. Adds a Holter device picker (and, for Admin, the intake nurse) |
+| `/sesi/berjalan`, `/sesi/selesai`, `/sesi/arsip` | Sesi Pemeriksaan | search, Lead / Interval filters, mini ECG strip per row, bulk bar (Selesai / Arsip / Pulihkan / Hapus), delete dialog, "Berhasil Dihapus" toast |
+| `/sesi/:code` | Detail Sesi | patient / doctor / emergency-contact cards, live Lead II strip (25 mm/s, 10 mm/mV, Freeze), battery / signal / lead / sampling cards, AI analysis, notes timeline with "load older" and a note box |
+| `/master/dokter`, `/master/dokter/baru`, `/master/dokter/:code` | Daftar / Edit Dokter | filters: status, subspecialty, quota; bulk activate / deactivate |
+| `/master/perawat`, `/master/perawat/:code` | Daftar / Edit Perawat | "Tambah Tenaga Perawat" dialog (NIK added: the database needs it) |
+| `/master/pasien`, `/master/pasien/baru`, `/master/pasien/:mrn` | Daftar / Edit Pasien | "Pasien Tidak Ditemukan" empty state, the patient's session history |
+| `/pengaturan` | Setting (user menu) | name, language, password. User menu also has Bahasa and Logout |
+
+What a role cannot do is hidden (buttons, menu items, routes) and also refused by the API. Lists refresh by themselves: running sessions every 15 s, the ECG strip at the session's sync interval, the sidebar counts every 30 s. The "Bahasa" choice is saved to the account, but the screens are only in Indonesian so far.
+
+### Demo data
+
+```bash
+python3 ecg/tools/seed_demo.py          # from for-fun/: people and 8 sessions from the designs (safe to run again)
+python3 ecg/tools/seed_demo.py --live   # then keep streaming synthetic ECG + telemetry to running sessions (Ctrl+C)
+```
+
+The ECG is synthetic (a modelled P-QRS-T beat), sent through the device ingest key the way a Holter K1 would. Without `--live`, running sessions show "Menunggu sinyal dari perangkat…" once their last 10 s of data are older than the strip window.
+
+### Storybook
+
+```bash
+cd web
+npm run storybook          # http://localhost:6008
+npm run build-storybook    # static build in web/dist-storybook (git-ignored)
+```
+
+"Komponen" has the UI kit (buttons, status pills, form fields, search + filter chips, dialogs, toasts, empty states) and the ECG strips. "Halaman" has every screen, rendered against a mock API (`src/mocks/`) with sample data from the designs; the toolbar's **Peran** switch shows the screens as Admin, Dokter or Perawat. Storybook never uses the real test logins: it replaces `VITE_DEMO_LOGINS` with fake ones.
+
+### Run locally through Apache at **http://localhost/for-fun/ecg/** (from this `ecg` folder):
 
 ```bash
 npm run build:local   # installs web/ deps (public npm, web/.npmrc) and builds web/dist with base /for-fun/ecg/
