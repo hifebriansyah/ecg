@@ -1,0 +1,21 @@
+# Local Apache only (not part of the build).
+# Serves the built web app from web/dist/ at http://localhost/for-fun/ecg/ (build it with `npm run build:local` in this folder).
+# Needs mod_rewrite and `AllowOverride FileInfo` (or All) for this folder, like ../raptor/.htaccess.
+# Caching: hashed bundles in assets/ never change, so they are cached for a year; index.html is re-checked on every load.
+<IfModule mod_headers.c>
+  Header set Cache-Control "no-cache"
+  <If "%{REQUEST_URI} =~ m#/assets/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /for-fun/ecg/
+  # a file of the build: assets/*.js, assets/*.css ...
+  RewriteCond %{DOCUMENT_ROOT}/for-fun/ecg/web/dist/$1 -f
+  RewriteRule ^(.+)$ web/dist/$1 [L]
+  # everything else (/, /login, ... and the repo files like design/ or worker/) -> the app; React Router picks the page
+  RewriteCond %{REQUEST_URI} !/web/dist/
+  RewriteRule ^ web/dist/index.html [L]
+</IfModule>

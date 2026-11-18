@@ -15,10 +15,18 @@ Repository: `github.com/hifebriansyah/ecg` (public). The tools read Cloudflare k
 
 ## Web app
 
+Run locally through Apache at **http://localhost/for-fun/ecg/** (from this `ecg` folder):
+
 ```bash
-cd web
-npm install      # uses the public npm registry (web/.npmrc)
-npm run dev      # http://localhost:5200/login
+npm run build:local   # installs web/ deps (public npm, web/.npmrc) and builds web/dist with base /for-fun/ecg/
+```
+
+`.htaccess` serves `web/dist`: built files directly, every other path (`/login`, …) gets `index.html` so React Router picks the page. Repo files (design, worker, tools, db) are not served. Run `build:local` again after changing the app. Needs `mod_rewrite` and `AllowOverride FileInfo` (or All).
+
+For development with hot reload instead:
+
+```bash
+npm run dev      # http://localhost:5200/login (same as: cd web && npm run dev)
 ```
 
 The API address comes from `VITE_API_URL` (see `web/.env.example`; the live API is the default). The login screen asks for the role (Admin / Dokter / Perawat), email and password. The account must have the chosen role, otherwise login is refused with a message naming the account's real role. "Ingat saya" keeps the login for 7 days; without it, the login ends when the tab closes.

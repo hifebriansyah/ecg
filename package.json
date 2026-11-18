@@ -1,0 +1,9 @@
+{
+  "name": "detakita-ecg",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build:local": "npm --prefix web install && npm --prefix web run build:local",
+    "dev": "npm --prefix web run dev"
+  }
+}
