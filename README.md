@@ -11,7 +11,7 @@ Admin web for the DETAKITA Holter ECG telemedicine service: master data (doctors
 - `tools/setup_db.py` — creates the D1 database and applies the schema.
 - `tools/deploy_worker.py` — uploads the API Worker. `tools/create_admin.py` — creates/resets an admin login.
 
-Repository: `github.com/hifebriansyah/ecg.situs.id` (private). The tools read Cloudflare keys from `../.env` (the `for-fun` folder), never from this repo.
+Repository: `github.com/hifebriansyah/ecg` (public). The tools read Cloudflare keys from `../.env` (the `for-fun` folder), never from this repo.
 
 ## Web app
 
