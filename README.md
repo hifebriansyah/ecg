@@ -17,8 +17,8 @@ Repository: `github.com/hifebriansyah/ecg.situs.id` (private). The tools read Cl
 
 ```bash
 cd web
-npm install
-npm run dev      # http://localhost:5173/login
+npm install      # uses the public npm registry (web/.npmrc)
+npm run dev      # http://localhost:5200/login
 ```
 
 The API address comes from `VITE_API_URL` (see `web/.env.example`; the live API is the default). The login screen asks for the role (Admin / Dokter / Perawat), email and password. The account must have the chosen role, otherwise login is refused with a message naming the account's real role. "Ingat saya" keeps the login for 7 days; without it, the login ends when the tab closes.
