@@ -9,7 +9,7 @@ Admin web for the DETAKITA Holter ECG telemedicine service: master data (doctors
 - `worker/api.js` — the REST API (Cloudflare Worker `ecg-api`), live at the address in `worker/api-url.txt`, with logins for three roles: Admin, Dokter, Perawat.
 - `web/` — the web app (React 19, React Router 7, Tailwind 4, Vite). So far: the login screen and a placeholder home page.
 - `tools/setup_db.py` — creates the D1 database and applies the schema.
-- `tools/deploy_worker.py` — uploads the API Worker. `tools/create_admin.py` — creates/resets an admin login.
+- `tools/deploy_worker.py` — uploads the API Worker. `tools/create_admin.py` — creates/resets an admin login. `tools/create_demo_logins.py` — Dokter/Perawat test logins and the login-screen autofill.
 
 Repository: `github.com/hifebriansyah/ecg` (public). The tools read Cloudflare keys from `../.env` (the `for-fun` folder), never from this repo.
 
@@ -22,6 +22,14 @@ npm run build:local   # installs web/ deps (public npm, web/.npmrc) and builds w
 ```
 
 `.htaccess` serves `web/dist`: built files directly, every other path (`/login`, …) gets `index.html` so React Router picks the page. Repo files (design, worker, tools, db) are not served. Run `build:local` again after changing the app. Needs `mod_rewrite` and `AllowOverride FileInfo` (or All).
+
+**Test logins (autofill).** Once per machine:
+
+```bash
+python3 ecg/tools/create_demo_logins.py   # from for-fun/
+```
+
+It creates a Dokter login (`dokter@detakita.med.id`, linked to dr. Andi Pratama from the designs) and a Perawat login (`perawat@detakita.med.id`, linked to Ns. Siti Rahmawati), reuses the admin from `create_admin.py`, keeps the passwords in `for-fun/.env`, and writes them to `web/.env.local` as `VITE_DEMO_LOGINS` (git-ignored). Then rebuild: clicking Admin / Dokter / Perawat under "Masuk sebagai" fills in that role's email and password. Without `web/.env.local` the fields stay empty. A build made with it has the passwords inside its JavaScript, so only use it locally, never for a public deploy.
 
 For development with hot reload instead:
 

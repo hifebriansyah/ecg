@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
-import { AlertCircle, Eye, EyeOff, HeartPulse, LoaderCircle, Lock, Mail, ShieldCheck, Stethoscope, UserCog } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, HeartPulse, KeyRound, LoaderCircle, Lock, Mail, ShieldCheck, Stethoscope, UserCog } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 
 const ROLE_OPTIONS = [
@@ -8,6 +8,12 @@ const ROLE_OPTIONS = [
   { code: 'doctor', label: 'Dokter', icon: Stethoscope, hint: 'Pantau pasien DPJP Anda' },
   { code: 'nurse', label: 'Perawat', icon: HeartPulse, hint: 'Intake & pemantauan sesi' },
 ];
+
+// Local test logins per role, from web/.env.local (written by tools/create_demo_logins.py, git-ignored).
+// When present, clicking a role fills in its email and password. Builds without that file have none.
+const DEMO_LOGINS = (() => {
+  try { return JSON.parse(import.meta.env.VITE_DEMO_LOGINS || '{}') || {}; } catch { return {}; }
+})();
 
 // Decorative Lead II strip for the brand panel.
 function EcgLine() {
@@ -26,8 +32,17 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [role, setRole] = useState('admin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(DEMO_LOGINS.admin?.email || '');
+  const [password, setPassword] = useState(DEMO_LOGINS.admin?.password || '');
+  const demo = DEMO_LOGINS[role];
+  const autofilled = !!demo && email === demo.email && password === demo.password;
+
+  function pickRole(code) {
+    setRole(code);
+    setFormError('');
+    const login = DEMO_LOGINS[code];
+    if (login) { setEmail(login.email); setPassword(login.password); setErrors({}); }
+  }
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
@@ -113,7 +128,7 @@ export default function Login() {
                   return (
                     <button
                       key={code} type="button" role="radio" aria-checked={active} title={hint}
-                      onClick={() => { setRole(code); setFormError(''); }}
+                      onClick={() => pickRole(code)}
                       className={`flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-sm font-semibold transition-colors ${
                         active
                           ? 'border-primary-container bg-primary-container text-on-primary'
@@ -126,7 +141,14 @@ export default function Login() {
                   );
                 })}
               </div>
-              <p className="mt-2 text-xs text-outline">{ROLE_OPTIONS.find((r) => r.code === role).hint}</p>
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-outline">
+                {ROLE_OPTIONS.find((r) => r.code === role).hint}
+                {autofilled && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 font-mono text-[11px] font-medium text-tertiary">
+                    <KeyRound className="size-3" /> Akun uji terisi otomatis
+                  </span>
+                )}
+              </p>
             </fieldset>
 
             <div>
