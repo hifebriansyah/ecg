@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
-  Archive, ChevronDown, ChevronsUpDown, CircleCheck, CirclePlay, CirclePlus, Database, HeartPulse, Languages,
-  LayoutGrid, LogOut, Menu, Settings, ShieldPlus, Stethoscope, UserRound, Activity, X,
+  ChevronDown, ChevronsUpDown, CirclePlus, Database, HeartPulse, Languages, LayoutGrid, LogOut, Menu, Settings, Activity, X,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import { api } from '../lib/api.js';
@@ -131,14 +130,14 @@ function Sidebar({ stats, onNavigate }) {
         <NavLink to="/" end className={linkCls}><LayoutGrid className="size-5" />Dashboard</NavLink>
         {can('sessions.create') && <NavLink to="/sesi/baru" className={linkCls}><CirclePlus className="size-5" />Tambah Sesi</NavLink>}
         <Group icon={Activity} label="Sesi Pemeriksaan">
-          <NavLink to="/sesi/berjalan" className={subLinkCls}><span className="flex items-center gap-2"><CirclePlay className="size-4" />Berjalan</span><Count n={s?.running} strong /></NavLink>
-          <NavLink to="/sesi/selesai" className={subLinkCls}><span className="flex items-center gap-2"><CircleCheck className="size-4" />Selesai</span><Count n={s?.completed} /></NavLink>
-          <NavLink to="/sesi/arsip" className={subLinkCls}><span className="flex items-center gap-2"><Archive className="size-4" />Arsip</span></NavLink>
+          <NavLink to="/sesi/berjalan" className={subLinkCls}><span>Berjalan</span><Count n={s?.running} strong /></NavLink>
+          <NavLink to="/sesi/selesai" className={subLinkCls}><span>Selesai</span><Count n={s?.completed} /></NavLink>
+          <NavLink to="/sesi/arsip" className={subLinkCls}><span>Arsip</span></NavLink>
         </Group>
         <Group icon={Database} label="Master Data">
-          <NavLink to="/master/dokter" className={subLinkCls}><span className="flex items-center gap-2"><Stethoscope className="size-4" />Dokter</span></NavLink>
-          <NavLink to="/master/perawat" className={subLinkCls}><span className="flex items-center gap-2"><ShieldPlus className="size-4" />Perawat</span></NavLink>
-          <NavLink to="/master/pasien" className={subLinkCls}><span className="flex items-center gap-2"><UserRound className="size-4" />Pasien</span></NavLink>
+          <NavLink to="/master/dokter" className={subLinkCls}><span>Dokter</span></NavLink>
+          <NavLink to="/master/perawat" className={subLinkCls}><span>Perawat</span></NavLink>
+          <NavLink to="/master/pasien" className={subLinkCls}><span>Pasien</span></NavLink>
         </Group>
       </nav>
       <UserMenu />
