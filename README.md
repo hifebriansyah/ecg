@@ -12,7 +12,9 @@ Admin web for the DETAKITA Holter ECG telemedicine service: master data (doctors
 - `tools/setup_db.py` — creates the D1 database and applies the schema.
 - `tools/deploy_worker.py` — uploads the API Worker. `tools/create_admin.py` — creates/resets an admin login. `tools/create_demo_logins.py` — Dokter/Perawat test logins and the login-screen autofill.
 
-Repository: `github.com/hifebriansyah/ecg` (public). The tools read Cloudflare keys from `../.env` (the `for-fun` folder), never from this repo.
+Repository: `github.com/hifebriansyah/ecg` (public). Live site: **https://ecg.situs.id** (GitHub Pages), Storybook at https://ecg.situs.id/storybook/.
+
+**GitHub Pages.** Every push to `main` runs `.github/workflows/pages.yml`: it builds `web/` (and its Storybook into `/storybook/`), copies `index.html` to `404.html` so app routes like `/sesi/<code>` load the app, and deploys with the custom domain from `CNAME`. DNS: `ecg.situs.id` is a proxied CNAME to `hifebriansyah.github.io` in the Cloudflare zone `situs.id`, like the other situs.id apps. The site is built in CI, so it never has the local test logins (no autofill there). Pages must be set to **Source: GitHub Actions** in the repo's Settings → Pages. The tools read Cloudflare keys from `../.env` (the `for-fun` folder), never from this repo.
 
 ## Web app
 
