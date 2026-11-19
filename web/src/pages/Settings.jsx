@@ -3,6 +3,9 @@ import { Check, KeyRound, Languages, UserRound } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { Button, Input, PageHeader, SectionCard, Select, fieldErrors, useToast } from '../components/ui.jsx';
+import DEMO_LOGINS from '../demo-logins.json';
+
+const DEMO_EMAILS = Object.values(DEMO_LOGINS).map((l) => l.email);
 
 // "Setting" from the user menu: own name, language, password.
 export default function Settings() {
@@ -58,6 +61,11 @@ export default function Settings() {
             <div className="mt-6 flex justify-end"><Button type="submit" icon={Check} loading={saving === 'profile'}>Simpan Profil</Button></div>
           </SectionCard>
         </form>
+        {DEMO_EMAILS.includes(user.email) ? (
+          <SectionCard icon={KeyRound} title="Ganti Kata Sandi" subtitle="Akun demo">
+            <p className="text-sm text-on-surface-variant">Ini akun demo dengan kata sandi publik, jadi kata sandinya tidak dapat diganti.</p>
+          </SectionCard>
+        ) : (
         <form onSubmit={savePassword} noValidate>
           <SectionCard icon={KeyRound} title="Ganti Kata Sandi" subtitle="Minimal 10 karakter">
             <div className="grid gap-5 sm:grid-cols-3">
@@ -68,6 +76,7 @@ export default function Settings() {
             <div className="mt-6 flex justify-end"><Button type="submit" icon={KeyRound} loading={saving === 'password'}>Ganti Kata Sandi</Button></div>
           </SectionCard>
         </form>
+        )}
       </div>
     </>
   );

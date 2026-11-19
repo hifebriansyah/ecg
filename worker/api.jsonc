@@ -8,6 +8,8 @@
   // Plain variables, set on every deploy. The secret INGEST_TOKEN (device key) is copied from .env ECG_INGEST_TOKEN.
   "vars": {
     "ALLOWED_ORIGINS": "*",
-    "AI_MODEL_VERSION": "v2.4"
+    "AI_MODEL_VERSION": "v2.4",
+    // Demo logins with public passwords (filled in on ecg.situs.id): their password, role and status cannot be changed.
+    "DEMO_EMAILS": "admin@detakita.med.id,dokter@detakita.med.id,perawat@detakita.med.id"
   }
 }

@@ -1,0 +1,5 @@
+{
+  "admin": { "email": "admin@detakita.med.id", "password": "demo-admin-2026", "name": "Admin Demo" },
+  "doctor": { "email": "dokter@detakita.med.id", "password": "demo-dokter-2026", "name": "Andi Pratama" },
+  "nurse": { "email": "perawat@detakita.med.id", "password": "demo-perawat-2026", "name": "Siti Rahmawati" }
+}

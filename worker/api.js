@@ -691,7 +691,14 @@ async function createUser(env, input) {
   return { user: publicUser(await findUser(env, id)), ...(generated ? { temporary_password: password } : {}) };
 }
 
+// Demo accounts (DEMO_EMAILS in api.jsonc) have public passwords on the demo site. Someone logged in with one cannot
+// change their own password or change/delete any login (so one visitor cannot lock the others or the real admin out).
+// Only a non-demo admin (e.g. the private one from tools/create_admin.py) manages logins.
+const isDemo = (env, email) => String(env.DEMO_EMAILS || '').toLowerCase().split(',').map((x) => x.trim()).includes(String(email).toLowerCase());
+const demoLocked = () => forbidden('Akun demo tidak dapat diubah');
+
 async function updateUser(env, id, input, actor) {
+  if (isDemo(env, actor.email)) throw demoLocked();
   const u = await findUser(env, id);
   if (input.role) input = { ...input, role: ROLE_ALIASES[String(input.role).toLowerCase()] || input.role };
   const { password: _p, reset_password: reset, ...fields } = input;
@@ -723,6 +730,7 @@ async function updateUser(env, id, input, actor) {
 }
 
 async function deleteUser(env, id, actor) {
+  if (isDemo(env, actor.email)) throw demoLocked();
   const u = await findUser(env, id);
   if (u.id === actor.id) throw conflict('You cannot delete your own login');
   await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(u.id).run();
@@ -773,6 +781,7 @@ const ROUTES = [
     const input = await body(req);
     const data = clean(input, { name: { type: 'text', max: 100 }, language: { type: 'enum', values: ['id', 'en'] } }, [], true);
     if (input.new_password !== undefined) {
+      if (isDemo(env, auth.user.email)) throw demoLocked();
       if (String(input.new_password).length < 10) throw bad('new_password must be at least 10 characters');
       if (!(await verifyPassword(String(input.current_password || ''), auth.user.password_hash))) throw forbidden('current_password is wrong');
       data.password_hash = await hashPassword(String(input.new_password));

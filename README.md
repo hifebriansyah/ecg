@@ -10,11 +10,11 @@ Admin web for the DETAKITA Holter ECG telemedicine service: master data (doctors
 - `web/` — the web app (React 19, React Router 7, Tailwind 4, Vite, Lucide icons) with every screen from `design/`, wired to the live API, plus a Storybook.
 - `tools/seed_demo.py` — fills the database with the doctors, nurses, patients and sessions shown in the designs (synthetic ECG).
 - `tools/setup_db.py` — creates the D1 database and applies the schema.
-- `tools/deploy_worker.py` — uploads the API Worker. `tools/create_admin.py` — creates/resets an admin login. `tools/create_demo_logins.py` — Dokter/Perawat test logins and the login-screen autofill.
+- `tools/deploy_worker.py` — uploads the API Worker. `tools/create_admin.py` — creates/resets an admin login. `tools/create_demo_logins.py` — the three public demo logins the login screen fills in.
 
 Repository: `github.com/hifebriansyah/ecg` (public). Live site: **https://ecg.situs.id** (GitHub Pages), Storybook at https://ecg.situs.id/storybook/.
 
-**GitHub Pages.** Every push to `main` runs `.github/workflows/pages.yml`: it builds `web/` (and its Storybook into `/storybook/`), copies `index.html` to `404.html` so app routes like `/sesi/<code>` load the app, and deploys with the custom domain from `CNAME`. DNS: `ecg.situs.id` is a proxied CNAME to `hifebriansyah.github.io` in the Cloudflare zone `situs.id`, like the other situs.id apps. The site is built in CI, so it never has the local test logins (no autofill there). Pages must be set to **Source: GitHub Actions** in the repo's Settings → Pages. The tools read Cloudflare keys from `../.env` (the `for-fun` folder), never from this repo.
+**GitHub Pages.** Every push to `main` runs `.github/workflows/pages.yml`: it builds `web/` (and its Storybook into `/storybook/`), copies `index.html` to `404.html` so app routes like `/sesi/<code>` load the app, and deploys with the custom domain from `CNAME`. DNS: `ecg.situs.id` is a proxied CNAME to `hifebriansyah.github.io` in the Cloudflare zone `situs.id`, like the other situs.id apps. Like the local build, it fills in the public demo logins (see Demo logins). Pages must be set to **Source: GitHub Actions** in the repo's Settings → Pages. The tools read Cloudflare keys from `../.env` (the `for-fun` folder), never from this repo.
 
 ## Web app
 
@@ -22,7 +22,7 @@ Repository: `github.com/hifebriansyah/ecg` (public). Live site: **https://ecg.si
 
 | Route | Screen (design) | Notes |
 |---|---|---|
-| `/login` | Masuk | role picker, autofill of test logins (see below) |
+| `/login` | Masuk | role picker; picking a role fills in its demo login |
 | `/` | Dashboard | not in the designs: counts per status, the newest running sessions with their ECG |
 | `/sesi/baru` | Tambah Sesi Pemeriksaan | Admin & Perawat. Adds a Holter device picker (and, for Admin, the intake nurse) |
 | `/sesi/berjalan`, `/sesi/selesai`, `/sesi/arsip` | Sesi Pemeriksaan | search, Lead / Interval filters, mini ECG strip per row, bulk bar (Selesai / Arsip / Pulihkan / Hapus), delete dialog, "Berhasil Dihapus" toast |
@@ -51,7 +51,7 @@ npm run storybook          # http://localhost:6008
 npm run build-storybook    # static build in web/dist-storybook (git-ignored)
 ```
 
-"Komponen" has the UI kit (buttons, status pills, form fields, search + filter chips, dialogs, toasts, empty states) and the ECG strips. "Halaman" has every screen, rendered against a mock API (`src/mocks/`) with sample data from the designs; the toolbar's **Peran** switch shows the screens as Admin, Dokter or Perawat. Storybook never uses the real test logins: it replaces `VITE_DEMO_LOGINS` with fake ones.
+"Komponen" has the UI kit (buttons, status pills, form fields, search + filter chips, dialogs, toasts, empty states) and the ECG strips. "Halaman" has every screen, rendered against a mock API (`src/mocks/`) with sample data from the designs; the toolbar's **Peran** switch shows the screens as Admin, Dokter or Perawat.
 
 ### Run locally through Apache at **http://localhost/for-fun/ecg/** (from this `ecg` folder):
 
@@ -61,13 +61,19 @@ npm run build:local   # installs web/ deps (public npm, web/.npmrc) and builds w
 
 `.htaccess` serves `web/dist`: built files directly, every other path (`/login`, …) gets `index.html` so React Router picks the page. Repo files (design, worker, tools, db) are not served. Run `build:local` again after changing the app. Needs `mod_rewrite` and `AllowOverride FileInfo` (or All).
 
-**Test logins (autofill).** Once per machine:
+**Demo logins (autofill).** This is a demo: on the login page, clicking Admin / Dokter / Perawat fills in that role's login, on ecg.situs.id and locally. They are public, in `web/src/demo-logins.json`:
+
+| Role | Email | Password | Linked to |
+|---|---|---|---|
+| Admin | `admin@detakita.med.id` | `demo-admin-2026` | — |
+| Dokter | `dokter@detakita.med.id` | `demo-dokter-2026` | dr. Andi Pratama, Sp.JP (K) |
+| Perawat | `perawat@detakita.med.id` | `demo-perawat-2026` | Ns. Siti Rahmawati, S.Kep |
+
+Because anyone can use them, the API (`DEMO_EMAILS` in `worker/api.jsonc`) stops a demo account from changing its password or changing / deleting any login. Everything else works, so visitors can change or delete demo data: run `python3 ecg/tools/seed_demo.py` to add the design data again. Logins are managed by your private admin from `create_admin.py` (`ECG_ADMIN_EMAIL` / `ECG_ADMIN_PASSWORD` in `for-fun/.env`, not a demo account). To create or reset the demo accounts after changing the JSON file:
 
 ```bash
 python3 ecg/tools/create_demo_logins.py   # from for-fun/
 ```
-
-It creates a Dokter login (`dokter@detakita.med.id`, linked to dr. Andi Pratama from the designs) and a Perawat login (`perawat@detakita.med.id`, linked to Ns. Siti Rahmawati), reuses the admin from `create_admin.py`, keeps the passwords in `for-fun/.env`, and writes them to `web/.env.local` as `VITE_DEMO_LOGINS` (git-ignored). Then rebuild: clicking Admin / Dokter / Perawat under "Masuk sebagai" fills in that role's email and password. Without `web/.env.local` the fields stay empty. A build made with it has the passwords inside its JavaScript, so only use it locally, never for a public deploy.
 
 For development with hot reload instead:
 

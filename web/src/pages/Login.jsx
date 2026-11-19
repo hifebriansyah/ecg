@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { AlertCircle, Eye, EyeOff, HeartPulse, KeyRound, LoaderCircle, Lock, Mail, ShieldCheck, Stethoscope, UserCog } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
+import DEMO_LOGINS from '../demo-logins.json';
 
 const ROLE_OPTIONS = [
   { code: 'admin', label: 'Admin', icon: UserCog, hint: 'Kelola master data & akun' },
@@ -9,11 +10,10 @@ const ROLE_OPTIONS = [
   { code: 'nurse', label: 'Perawat', icon: HeartPulse, hint: 'Intake & pemantauan sesi' },
 ];
 
-// Local test logins per role, from web/.env.local (written by tools/create_demo_logins.py, git-ignored).
-// When present, clicking a role fills in its email and password. Builds without that file have none.
-const DEMO_LOGINS = (() => {
-  try { return JSON.parse(import.meta.env.VITE_DEMO_LOGINS || '{}') || {}; } catch { return {}; }
-})();
+// Public demo logins, one per role (src/demo-logins.json, created by tools/create_demo_logins.py).
+// Clicking a role fills in its email and password. This is a demo site: these passwords are meant to be public,
+// and the API stops demo accounts from changing passwords or other logins.
+
 
 // Decorative Lead II strip for the brand panel.
 function EcgLine() {
@@ -145,7 +145,7 @@ export default function Login() {
                 {ROLE_OPTIONS.find((r) => r.code === role).hint}
                 {autofilled && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 font-mono text-[11px] font-medium text-tertiary">
-                    <KeyRound className="size-3" /> Akun uji terisi otomatis
+                    <KeyRound className="size-3" /> Akun demo terisi otomatis
                   </span>
                 )}
               </p>
