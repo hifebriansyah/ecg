@@ -11,7 +11,7 @@ const UV_PER_MV = 1000;
 // Two modes:
 //  - fixed: the strip spans [from, to] (ms) and is painted whenever its props change (history, frozen view, stories);
 //  - live: sweep display, like a bedside monitor. A glowing pen moves left to right at the paper speed and draws the line sample by sample (up and
-//    down as the signal does); a short gap ahead of the pen erases the previous pass, which stays visible to the right of it. The pen is driven by a
+//    down as the signal does); a narrow band ahead of the pen (14 px) erases the previous pass, which stays visible to the right of it. The pen is driven by a
 //    render clock at the screen's frame rate, `delay` ms behind the newest sample: chunks arrive in bursts (about one per second) but the clock does
 //    not, it follows the arrival of data gently, so the pen never jumps, stalls or runs out of data.
 // Themes: 'dark' is the monitor look; 'paper' is the hospital standard ECG paper (pink 1 mm / 5 mm grid, black trace). The canvas paints its own
@@ -87,7 +87,7 @@ export function EcgCanvas({ chunks = [], hz = 250, from, to, live = false, span 
       : [{ t0: fromT, t1: toT, base: fromT }];
     let drawn = false; let head = null;
     for (const seg of segments) {
-      let lastX = -Infinity; let pen = false;
+      let lastX = -Infinity; let pen = false; let segHead = null; // segHead: the last sample drawn in this part
       for (const c of cs) {
         if (c.started_at > seg.t1 || c.started_at + c.samples.length * dt < seg.t0) continue; // not in this part
         pen = false;
@@ -97,17 +97,19 @@ export function EcgCanvas({ chunks = [], hz = 250, from, to, live = false, span 
           const x = ((tt - seg.base) / spanMs) * width;
           const y = Math.max(1, Math.min(height - 1, mid - c.samples[i] * pxPerUv));
           if (!pen || x - lastX > 4 * (width / spanMs) * dt) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-          pen = true; lastX = x; drawn = true; head = { x, y, tt, i, c };
+          pen = true; lastX = x; drawn = true; segHead = { x, y, tt, i, c };
         }
       }
       // the pen sits exactly at the clock: continue the line from the last sample to the interpolated value at that moment
-      if (sweep && seg.base === sweep.start && head && pen) {
-        const next = head.c.samples[head.i + 1];
-        const frac = Math.max(0, Math.min(1, (sweep.rt - head.tt) / dt));
-        const v = next === undefined ? head.c.samples[head.i] : head.c.samples[head.i] + (next - head.c.samples[head.i]) * frac;
-        head = { x: ((sweep.rt - sweep.start) / spanMs) * width, y: Math.max(1, Math.min(height - 1, mid - v * pxPerUv)) };
-        ctx.lineTo(head.x, head.y);
-      } else if (seg.base === sweep?.start) head = null;
+      if (sweep && seg.base === sweep.start) { // the current pass: the pen sits exactly at the clock
+        if (segHead) {
+          const next = segHead.c.samples[segHead.i + 1];
+          const frac = Math.max(0, Math.min(1, (sweep.rt - segHead.tt) / dt));
+          const v = next === undefined ? segHead.c.samples[segHead.i] : segHead.c.samples[segHead.i] + (next - segHead.c.samples[segHead.i]) * frac;
+          head = { x: ((sweep.rt - sweep.start) / spanMs) * width, y: Math.max(1, Math.min(height - 1, mid - v * pxPerUv)) };
+          ctx.lineTo(head.x, head.y); // continue the line from the last sample to the interpolated value at that moment
+        } else head = null; // no data yet in this pass
+      }
     }
     if (!drawn) { ctx.strokeStyle = 'rgba(190,200,202,0.35)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.moveTo(0, mid); ctx.lineTo(width, mid); ctx.stroke(); return; }
     // glow: a wide faint stroke under the crisp one (much cheaper than shadowBlur on a long path); paper has none
@@ -116,11 +118,12 @@ export function EcgCanvas({ chunks = [], hz = 250, from, to, live = false, span 
     ctx.globalAlpha = 1; ctx.lineWidth = paper ? 1.5 : grid ? 1.8 : 1.5; ctx.stroke();
     if (sweep && head) { // the pen
       if (!paper) {
-        const g = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, grid ? 12 : 8);
+        const g = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, grid ? 16 : 8);
         g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.globalAlpha = 0.55; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(head.x, head.y, grid ? 12 : 8, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.55; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(head.x, head.y, grid ? 16 : 8, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.globalAlpha = 1; ctx.fillStyle = paper ? '#b91c1c' : '#fff'; ctx.beginPath(); ctx.arc(head.x, head.y, grid ? 2.6 : 2, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1; ctx.fillStyle = paper ? '#b91c1c' : '#fff'; ctx.beginPath(); ctx.arc(head.x, head.y, grid ? 3.4 : 2, 0, Math.PI * 2); ctx.fill();
+      if (grid) { ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.globalAlpha = paper ? 0.9 : 0.8; ctx.beginPath(); ctx.arc(head.x, head.y, 6.5, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; } // ring around the pen on the big strip
     }
   }, [width, height, color, grid, theme]);
 
@@ -146,14 +149,15 @@ export function EcgCanvas({ chunks = [], hz = 250, from, to, live = false, span 
         const step = now - last;
         if (rt === null || Math.abs(ideal - rt) > 3000) rt = ideal; // first frame, or far off (tab was hidden): jump
         else rt += step + (ideal - rt) * Math.min(1, step / 1500); // otherwise run at real speed and drift gently toward the ideal
-        paint(rt - span, rt, { rt, start: Math.floor(rt / span) * span, gap: span * 0.04 });
+        if (rt > a.head) rt = a.head; // never run past the newest sample: when a poll is late the pen waits at the end of the data instead of leaving a growing blank
+        paint(rt - span, rt, { rt, start: Math.floor(rt / span) * span, gap: span * ((grid ? 28 : 14) / width) }); // a narrow erased band (28 px on the big strip, 14 px on the list strips, at any zoom) ahead of the pen, like a bedside monitor
       } else paint(0, span); // no data yet: baseline
       last = now;
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [live, width, paint, span, delay]);
+  }, [live, width, paint, span, delay, grid]);
 
   return <canvas ref={setRef} style={{ width: '100%', height }} className={className} role="img" aria-label={label || t('Strip EKG')} />;
 }
@@ -167,6 +171,7 @@ export function useEcg(code, { span = 10000, to, poll, lead, stream = false } = 
   const [telemetry, setTelemetry] = useState(null);
   const [wsOpen, setWsOpen] = useState(false);
   const wsOpenRef = useRef(false);
+  const spanRef = useRef(span); spanRef.current = span; // zooming must not reopen the socket
   const toKey = to ?? null;
 
   useEffect(() => {
@@ -179,12 +184,13 @@ export function useEcg(code, { span = 10000, to, poll, lead, stream = false } = 
         if (m.telemetry) setTelemetry(m.telemetry);
         if (m.ecg) {
           const end = m.ecg.started_at + (m.ecg.samples.length * 1000) / (m.ecg.hz || 250);
-          setState((s) => ({ ...s, chunks: [...s.chunks, { started_at: m.ecg.started_at, samples: m.ecg.samples }].slice(-(Math.ceil(span / 1000) + 8)), hz: m.ecg.hz || s.hz, from: end - span, to: end, loaded: true }));
+          const spanNow = spanRef.current;
+          setState((s) => ({ ...s, chunks: [...s.chunks, { started_at: m.ecg.started_at, samples: m.ecg.samples }].slice(-(Math.ceil(spanRef.current / 1000) + 8)), hz: m.ecg.hz || s.hz, from: end - spanNow, to: end, loaded: true }));
         }
       },
     });
     return () => { conn.close(); wsOpenRef.current = false; };
-  }, [code, stream, span]);
+  }, [code, stream]);
 
   useEffect(() => {
     if (!code) return;
@@ -202,14 +208,14 @@ export function useEcg(code, { span = 10000, to, poll, lead, stream = false } = 
     return () => { alive = false; ctrl?.abort(); if (id) clearInterval(id); };
   }, [code, span, toKey, poll, lead]);
   // how far behind the newest sample the live strip runs: enough that the trace never reaches the end of the data between two arrivals
-  const delay = wsOpen ? 1500 : (poll || 2000) + 1500;
+  const delay = wsOpen ? 1500 : (poll || 2000) + 2500; // REST: a poll can be late, so keep a bigger cushion
   return { ...state, telemetry, transport: wsOpen ? 'ws' : 'rest', delay };
 }
 
 // Compact strip for a list row (design: "GARIS EKG" column) with the BPM and rhythm on the right.
 export function MiniEcg({ code, live, lastSeen, bpm, rhythm, tone = 'ok' }) {
   const to = live ? undefined : lastSeen || undefined;
-  const ecg = useEcg(code, { span: 6000, to, poll: live ? 5000 : undefined });
+  const ecg = useEcg(code, { span: 6000, to, poll: live ? 5000 : undefined, stream: !!live }); // live rows listen on the WebSocket; the 5 s poll only fills in while it reconnects
   const hasSignal = useMemo(() => ecg.chunks.length > 0, [ecg.chunks]);
   const color = TONE_COLOR[tone];
   return (

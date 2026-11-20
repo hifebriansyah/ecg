@@ -1,5 +1,7 @@
 // English texts: the ECG viewer on the session page (Live / Review, zoom, trend, export, print). Key = the Indonesian string used in t().
 export default {
+  'Menyambung…': 'Reconnecting…',
+  'Gulir untuk zoom. Seret untuk menelusuri rekaman ke belakang.': 'Scroll to zoom. Drag to look back through the recording.',
   'Kembali ke Dashboard': 'Back to Dashboard',
   'Filter perangkat': 'Device filter',
   'Mode': 'Mode',

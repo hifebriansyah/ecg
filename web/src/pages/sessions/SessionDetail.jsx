@@ -8,7 +8,6 @@ import { api } from '../../lib/api.js';
 import { t } from '../../lib/i18n.jsx';
 import { useAuth } from '../../lib/auth.jsx';
 import { useApi } from '../../lib/useApi.js';
-import { getTransport, setTransport } from '../../lib/stream.js';
 import { TONE_COLOR, fmtDateTime, fmtDuration, fmtHM, fmtTime, rhythmTone, sexLabel } from '../../lib/format.js';
 import { useStats } from '../../components/Layout.jsx';
 import { useEcg } from '../../components/EcgStrip.jsx';
@@ -46,18 +45,17 @@ const signalLabel = (q) => (q == null ? '—' : q >= 95 ? 'Sangat Baik' : q >= 8
 function Monitor({ s }) {
   const live = s.status === 'running';
   const [mode, setMode] = useState(live ? 'live' : 'review'); // 'live' (sweep) | 'review' (zoom, navigate, ...): see EcgViewer
-  const [pref, setPref] = useState(getTransport()); // 'ws' | 'rest': how the live strip gets its data
+  const [liveSpan, setLiveSpan] = useState(10000); // seconds on screen (zoom): the viewer reports it so the feed keeps enough history
   const liveNow = live && mode === 'live';
-  const ecg = useEcg(live ? s.code : null, { span: 10000, poll: liveNow ? Math.max(2000, s.sync_interval_sec * 1000) : undefined, stream: liveNow && pref === 'ws' });
+  const ecg = useEcg(live ? s.code : null, { span: liveSpan, poll: liveNow ? Math.max(2000, s.sync_interval_sec * 1000) : undefined, stream: liveNow }); // live always listens on the WebSocket (REST polling only fills in while it reconnects)
   const tel = ecg.telemetry ? { ...s.latest_telemetry, ...ecg.telemetry } : s.latest_telemetry; // readings pushed over the socket are newer than the page's own refresh
-  const switchTransport = (v) => { setTransport(v); setPref(v); };
   const tone = rhythmTone(tel?.bpm ?? s.last_bpm, tel?.rhythm || s.last_rhythm || '');
   const color = TONE_COLOR[tone];
   const battery = tel?.battery_pct;
 
   return (
     <Card className="p-4 sm:p-6">
-      <EcgViewer s={s} ecg={ecg} tel={tel} color={color} live={live} mode={mode} setMode={setMode} pref={pref} switchTransport={switchTransport} />
+      <EcgViewer s={s} ecg={ecg} tel={tel} color={color} live={live} mode={mode} setMode={setMode} onSpanChange={setLiveSpan} />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="p-4">

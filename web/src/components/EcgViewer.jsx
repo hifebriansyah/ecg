@@ -73,7 +73,7 @@ function Tool({ icon: Icon, children, ...rest }) {
 
 // The ECG viewer of a session: Live (sweep) and Review (zoom, pan, minute navigation, jump to moments, heart-rate trend), hospital-paper or monitor
 // theme, smoothing filter, CSV / image export and print. `ecg` is the live feed from useEcg (owned by the page, which also needs its telemetry).
-export default function EcgViewer({ s, ecg, tel, color, live, mode, setMode, pref, switchTransport }) {
+export default function EcgViewer({ s, ecg, tel, color, live, mode, setMode, onSpanChange }) {
   const toast = useToast();
   const review = mode === 'review' || !live;
   const [theme, setTheme] = useState(() => readPref('ecg.viewerTheme', ['dark', 'paper'], 'dark'));
@@ -90,6 +90,7 @@ export default function EcgViewer({ s, ecg, tel, color, live, mode, setMode, pre
   const [view, setView] = useState({ start: live ? null : recStart, span: 10000 });
   const goReview = () => { setView((v) => ({ ...v, start: clampStart(recEnd - v.span, v.span) })); setMode('review'); };
   const start = view.start ?? clampStart(recEnd - view.span, view.span);
+  useEffect(() => { onSpanChange?.(view.span); }, [view.span, onSpanChange]); // the live feed keeps enough history for the zoom level
   const range = useEcgRange(s.code, start, view.span, review);
   const canvasRef = useRef(null); const wrapRef = useRef(null);
 
@@ -105,20 +106,28 @@ export default function EcgViewer({ s, ecg, tel, color, live, mode, setMode, pre
 
   // wheel zoom around the pointer (needs a non-passive listener to stop the page from scrolling)
   useEffect(() => {
-    const el = wrapRef.current; if (!el || !review) return undefined;
+    const el = wrapRef.current; if (!el) return undefined;
     const onWheel = (e) => {
       e.preventDefault();
       const r = el.getBoundingClientRect(); const frac = clamp((e.clientX - r.left) / r.width, 0, 1);
-      setView((v) => { const st = v.start ?? start; const sp = clamp(v.span * (e.deltaY > 0 ? 1.15 : 1 / 1.15), MIN_SPAN, MAX_SPAN); return { span: sp, start: clampStart(st + frac * v.span - frac * sp, sp) }; });
+      setView((v) => {
+        const sp = clamp(v.span * (e.deltaY > 0 ? 1.15 : 1 / 1.15), MIN_SPAN, MAX_SPAN);
+        if (!review) return { ...v, span: sp }; // live: the sweep just shows more or fewer seconds
+        return { span: sp, start: clampStart((v.start ?? start) + frac * v.span - frac * sp, sp) };
+      });
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, [review, start, clampStart]);
 
   const drag = useRef(null); const [hover, setHover] = useState(null);
-  const onDown = (e) => { if (!review) return; e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.clientX, start }; };
+  const onDown = (e) => {
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* a pointer that is already gone: keep going without capture */ }
+    if (!review) { const st = clampStart(recEnd - view.span, view.span); goReview(); drag.current = { x: e.clientX, start: st }; return; } // grabbing a running strip opens Review at this moment
+    drag.current = { x: e.clientX, start };
+  };
   const onMove = (e) => {
-    if (!review) return;
+    if (!review && !drag.current) return;
     const r = wrapRef.current.getBoundingClientRect(); const frac = clamp((e.clientX - r.left) / r.width, 0, 1);
     if (drag.current) { moveTo(drag.current.start - ((e.clientX - drag.current.x) / r.width) * view.span); setHover(null); return; }
     const tt = start + frac * view.span; const dt = 1000 / hz;
@@ -169,7 +178,7 @@ export default function EcgViewer({ s, ecg, tel, color, live, mode, setMode, pre
   const P = paper
     ? { box: 'bg-[#fff6f4] text-[#1f2937]', line: 'border-[#e3b5b5]', muted: 'text-[#7a4a4a]', hud: 'border-[#e3b5b5] bg-white/90', dot: 'bg-[#b91c1c]', head: 'text-[#9a3412]' }
     : { box: 'bg-[#0b1c30] text-white', line: 'border-white/10', muted: 'text-white/60', hud: 'border-white/10 bg-[#13263d]/90 backdrop-blur', dot: 'bg-[#2ee6c5]', head: 'text-[#2ee6c5]' };
-  const spanLabel = `${Math.round((review ? view.span : 10000) / 100) / 10} s`;
+  const spanLabel = `${Math.round(view.span / 100) / 10} s`;
   const hasData = chunks.length > 0;
 
   return (
@@ -182,9 +191,12 @@ export default function EcgViewer({ s, ecg, tel, color, live, mode, setMode, pre
         <div className="flex flex-wrap items-center gap-2">
           <Seg label={t('Mode')} value={review ? 'review' : 'live'} onChange={(v) => (v === 'live' ? setMode('live') : goReview())}
             options={[{ v: 'live', text: 'Live', icon: Activity, disabled: !live }, { v: 'review', text: t('Telaah'), icon: MonitorPlay }]} />
-          {live && !review && (
-            <Seg label={t('Sumber data langsung')} value={pref} onChange={switchTransport}
-              options={[{ v: 'ws', text: <><span className={cx('size-1.5 rounded-full', pref === 'ws' ? (ecg.transport === 'ws' ? 'bg-[#2ee6c5]' : 'bg-[#f5b934]') : 'bg-transparent')} title={ecg.transport === 'ws' ? t('Terhubung') : t('Menyambung… (sementara memakai REST)')} />WebSocket</> }, { v: 'rest', text: 'REST' }]} />
+          {live && !review && ( // live always listens on the WebSocket; this only shows its state (REST polling covers an outage)
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-outline-variant/40 bg-surface-container-low px-2.5 py-1.5 font-mono text-xs text-on-surface-variant"
+              title={ecg.transport === 'ws' ? t('Terhubung') : t('Menyambung… (sementara memakai REST)')}>
+              <span className={cx('size-1.5 rounded-full', ecg.transport === 'ws' ? 'bg-[#00a894]' : 'animate-pulse bg-[#f5b934]')} />
+              {ecg.transport === 'ws' ? 'WebSocket' : t('Menyambung…')}
+            </span>
           )}
           {live && !review && <Tool icon={Pause} onClick={goReview}>{t('Bekukan (Freeze)')}</Tool>}
           {live && review && <Tool icon={Play} onClick={() => setMode('live')}>{t('Kembali ke Live')}</Tool>}
@@ -207,11 +219,11 @@ export default function EcgViewer({ s, ecg, tel, color, live, mode, setMode, pre
             {review ? `${msClock(start)} → ${fmtTime(start + view.span)}${range.loading ? ' …' : ''}` : t('Waktu Sinyal: {time} • Standard AAMI Calibration', { time: ecg.to ? fmtTime(ecg.to) : '—' })}
           </span>
         </div>
-        <div ref={wrapRef} className={cx('relative outline-none', review && 'cursor-grab touch-pan-y active:cursor-grabbing')} tabIndex={review ? 0 : -1} aria-label={review ? t('Grafik EKG: seret untuk menggeser, gulir untuk zoom, tombol panah untuk bergerak') : undefined}
+        <div ref={wrapRef} className="relative cursor-grab touch-pan-y outline-none active:cursor-grabbing" tabIndex={review ? 0 : -1} title={review ? undefined : t('Gulir untuk zoom. Seret untuk menelusuri rekaman ke belakang.')} aria-label={review ? t('Grafik EKG: seret untuk menggeser, gulir untuk zoom, tombol panah untuk bergerak') : undefined}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onPointerLeave={() => { onUp(); setHover(null); }} onKeyDown={onKey}>
           {review
             ? <EcgCanvas chunks={chunks} hz={hz} from={start} to={start + view.span} color={lineColor} grid height={260} theme={effTheme} canvasRef={canvasRef} label={t('Strip EKG Lead II')} />
-            : <EcgCanvas chunks={chunks} hz={hz} live span={10000} delay={ecg.delay} color={lineColor} grid height={260} theme={effTheme} canvasRef={canvasRef} label={t('Strip EKG Lead II')} />}
+            : <EcgCanvas chunks={chunks} hz={hz} live span={view.span} delay={ecg.delay} color={lineColor} grid height={260} theme={effTheme} canvasRef={canvasRef} label={t('Strip EKG Lead II')} />}
           {!hasData && (ecg.loaded || review) && !range.loading && (
             <div className={cx('pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-xs uppercase tracking-wider', paper ? 'text-[#7a4a4a]' : 'text-white/50')}>
               {live && !review ? t('Menunggu sinyal dari perangkat…') : t('Tidak ada rekaman pada rentang ini')}
@@ -244,8 +256,8 @@ export default function EcgViewer({ s, ecg, tel, color, live, mode, setMode, pre
       </div>
 
       <div className="mt-3 space-y-3 print:hidden">
-        {review && (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {review && (<>
             <Tool icon={ChevronsLeft} title={t('Awal rekaman')} onClick={() => moveTo(recStart)}><span className="sr-only">{t('Awal rekaman')}</span></Tool>
             <Tool icon={ChevronLeft} title={t('Mundur 1 menit')} onClick={() => moveTo(start - 60000)}>-1 {t('mnt')}</Tool>
             <label className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant">{t('Menit')}
@@ -262,14 +274,14 @@ export default function EcgViewer({ s, ecg, tel, color, live, mode, setMode, pre
               <option value="">{t('Loncat ke momen…')}</option>
               {(moments.data?.data || []).map((m, i) => <option key={i} value={m.at}>{fmtHM(m.at)} • {t(m.label)}{m.bpm ? ` • ${m.bpm} BPM` : ''}</option>)}
             </select>
+          </>)}
             <span className="ml-auto inline-flex items-center gap-1.5">
               <span className="text-xs text-on-surface-variant">Zoom:</span>
               <Seg label="Zoom" value={view.span} onChange={(v) => setSpan(v)} options={PRESETS.map((p) => ({ v: p, text: `${p / 1000}s` }))} />
               <Tool icon={ZoomOut} title={t('Perkecil')} onClick={() => setSpan(view.span * 1.5)}><span className="sr-only">{t('Perkecil')}</span></Tool>
               <Tool icon={ZoomIn} title={t('Perbesar')} onClick={() => setSpan(view.span / 1.5)}><span className="sr-only">{t('Perbesar')}</span></Tool>
             </span>
-          </div>
-        )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Seg label={t('Tema')} value={theme} onChange={pickTheme} options={[{ v: 'dark', text: 'Monitor', icon: Zap }, { v: 'paper', text: t('Kertas RS'), icon: FileText, title: t('Kertas EKG standar rumah sakit') }]} />
           <label className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant">{t('Penghalus')}

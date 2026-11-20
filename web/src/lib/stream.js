@@ -4,10 +4,6 @@ import { API_URL, getToken } from './api.js';
 //   role 'view': receives { type: 'live', ecg?: {started_at, hz, lead, samples}, telemetry?: {...} } for every chunk saved
 //   role 'push': sends { seq, bpm, ecg_waveform } frames (same body as POST /sessions/:code/data), gets { type: 'ack' | 'error', seq, ... }
 // Reconnects by itself with a growing delay and pings every 25 s (the server answers without waking up).
-const PREF = 'ecg.transport';
-export const getTransport = () => { try { return localStorage.getItem(PREF) === 'rest' ? 'rest' : 'ws'; } catch { return 'ws'; } };
-export const setTransport = (v) => { try { localStorage.setItem(PREF, v === 'rest' ? 'rest' : 'ws'); } catch { /* storage blocked */ } };
-
 export function streamUrl(code, role) {
   const u = new URL(API_URL);
   u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
