@@ -1,10 +1,22 @@
-import { Card, Checkbox, EmptyState, ErrorBlock, LoadingBlock, Pagination, cx } from './ui.jsx';
+import { useEffect, useRef } from 'react';
+import { Card, Checkbox, EmptyState, ErrorBlock, LoadingBlock, Spinner, cx } from './ui.jsx';
 import { SearchX } from 'lucide-react';
 import { t } from '../lib/i18n.jsx';
 
 // Flat clinical table from the designs. columns: [{ key, label, className, render(row) }]
+// Infinite scroll: when the row after the last one comes into view, the next page is loaded (list.loadMore).
 export default function DataTable({ list, columns, rowKey = (r) => r.id, onRowClick, selectable, empty, minWidth = 640 }) {
-  const { rows, loading, error, reload, data, selected, toggle, selectAll, allOn, someOn, filtered, setSearch, setFilters } = list;
+  const { rows, loading, error, reload, data, selected, toggle, selectAll, allOn, someOn, filtered, setSearch, setFilters, hasMore, loadMore, loadingMore, total } = list;
+  const sentinel = useRef(null);
+
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !hasMore) return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) loadMore(); }, { rootMargin: '400px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, loadMore, rows.length]);
+
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
@@ -37,7 +49,7 @@ export default function DataTable({ list, columns, rowKey = (r) => r.id, onRowCl
           </tbody>
         </table>
       </div>
-      {loading && !data && <LoadingBlock />}
+      {loading && rows.length === 0 && !error && <LoadingBlock />}
       {error && <ErrorBlock error={error} onRetry={() => reload()} />}
       {!loading && !error && data && rows.length === 0 && (
         filtered
@@ -45,7 +57,13 @@ export default function DataTable({ list, columns, rowKey = (r) => r.id, onRowCl
               action={<button type="button" onClick={() => { setSearch(''); setFilters({}); }} className="text-sm font-semibold text-primary hover:underline">{t(empty?.resetLabel || 'Tampilkan semua data')}</button>} />
           : <EmptyState icon={empty?.icon} title={empty?.title || t('Belum ada data')} text={empty?.text} action={empty?.action} />
       )}
-      <Pagination page={list.page} limit={list.limit} total={list.total} onPage={list.setPage} />
+      {rows.length > 0 && (
+        <div ref={sentinel} className="flex items-center justify-center gap-2 border-t border-outline-variant/20 px-4 py-3 font-mono text-xs text-outline">
+          {loadingMore ? <><Spinner className="size-4" />{t('Memuat data…')}</>
+            : hasMore ? <button type="button" onClick={loadMore} className="text-primary hover:underline">{t('Muat lebih banyak')} ({rows.length} / {total})</button>
+            : <span>{t('Semua {n} data ditampilkan', { n: total })}</span>}
+        </div>
+      )}
     </Card>
   );
 }

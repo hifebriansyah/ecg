@@ -8,6 +8,8 @@ export default {
   // ui / common
   'Memuat': 'Loading',
   'Memuat data…': 'Loading data…',
+  'Muat lebih banyak': 'Load more',
+  'Semua {n} data ditampilkan': 'All {n} shown',
   'Gagal memuat data.': 'Failed to load data.',
   'Coba lagi': 'Try again',
   '{from}–{to} dari {total}': '{from}–{to} of {total}',
