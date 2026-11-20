@@ -14,6 +14,22 @@ PRAGMA foreign_keys = ON;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Accounts (sidebar user card: "Inara · Admin", inara@detakita.med.id; Bahasa / Setting / Logout)
 -- ─────────────────────────────────────────────────────────────────────────────
+-- Konfigurasi > Grup / Izin: a group is a named set of permissions; a user belongs to one group and may have
+-- per-user overrides (allow / deny). The 'admin' group always has every permission (not stored, not editable).
+CREATE TABLE IF NOT EXISTS user_groups (
+  id          INTEGER PRIMARY KEY,
+  code        TEXT NOT NULL UNIQUE,                   -- 'admin', 'doctor', 'nurse' (system groups) or a slug
+  name        TEXT NOT NULL,                          -- "Dokter"
+  description TEXT,
+  is_system   INTEGER NOT NULL DEFAULT 0,             -- system groups cannot be deleted
+  created_at  INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS group_permissions (
+  group_id    INTEGER NOT NULL REFERENCES user_groups(id) ON DELETE CASCADE,
+  permission  TEXT NOT NULL,                          -- 'sessions.create', ... (catalog is in worker/api.js)
+  PRIMARY KEY (group_id, permission)
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id             INTEGER PRIMARY KEY,
   name           TEXT NOT NULL,                       -- "Inara"
@@ -24,6 +40,7 @@ CREATE TABLE IF NOT EXISTS users (
   doctor_id      INTEGER REFERENCES doctors(id) ON DELETE SET NULL, -- set when the login belongs to a doctor
   nurse_id       INTEGER REFERENCES nurses(id)  ON DELETE SET NULL, -- set when the login belongs to a nurse
   language       TEXT NOT NULL DEFAULT 'id' CHECK (language IN ('id','en')), -- "Bahasa" menu
+  group_id       INTEGER REFERENCES user_groups(id) ON DELETE SET NULL,   -- permission group (Konfigurasi > Grup); NULL = the group named like the role
   is_active      INTEGER NOT NULL DEFAULT 1,
   last_login_at  INTEGER,
   created_at     INTEGER NOT NULL,
@@ -299,3 +316,50 @@ INSERT OR IGNORE INTO units (name, sort_order) VALUES
 -- One login per doctor / nurse profile (added with the role logins).
 CREATE UNIQUE INDEX IF NOT EXISTS users_doctor ON users(doctor_id) WHERE doctor_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_nurse  ON users(nurse_id)  WHERE nurse_id  IS NOT NULL;
+
+-- Per-user overrides on top of the group, and patient app (apk) passwords.
+CREATE TABLE IF NOT EXISTS user_permissions (
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  permission  TEXT NOT NULL,
+  effect      TEXT NOT NULL CHECK (effect IN ('allow','deny')),
+  PRIMARY KEY (user_id, permission)
+);
+-- Patients have no web login; this is the password for the patient mobile app (kept apart from `patients` so it never leaks in API rows).
+CREATE TABLE IF NOT EXISTS patient_credentials (
+  patient_id    INTEGER PRIMARY KEY REFERENCES patients(id) ON DELETE CASCADE,
+  password_hash TEXT NOT NULL,
+  updated_at    INTEGER NOT NULL
+);
+
+-- Default groups and permissions. Doctor: dashboard + the sessions where they are the DPJP (plus working on those).
+-- Nurse: dashboard, every session, create sessions, intake patients. Admin: everything (implicit).
+INSERT OR IGNORE INTO user_groups (code, name, description, is_system, created_at) VALUES
+  ('admin',  'Admin',   'Akses penuh ke semua fitur', 1, 0),
+  ('doctor', 'Dokter',  'Dashboard dan sesi pemeriksaan yang ditugaskan kepadanya (DPJP)', 1, 0),
+  ('nurse',  'Perawat', 'Dashboard, membuat sesi, dan melihat semua sesi', 1, 0);
+INSERT OR IGNORE INTO group_permissions (group_id, permission)
+  SELECT g.id, v.column1 FROM user_groups g, (VALUES
+    ('dashboard.view'),
+    ('sessions.read_own'),
+    ('sessions.edit'),
+    ('sessions.complete'),
+    ('notes.write'),
+    ('ai.run')) AS v
+  WHERE g.code = 'doctor' AND g.is_system = 1
+    AND NOT EXISTS (SELECT 1 FROM group_permissions x WHERE x.group_id = g.id);  -- only a group with no permissions yet, so edits survive a re-run
+INSERT OR IGNORE INTO group_permissions (group_id, permission)
+  SELECT g.id, v.column1 FROM user_groups g, (VALUES
+    ('dashboard.view'),
+    ('sessions.read_all'),
+    ('sessions.create'),
+    ('sessions.edit'),
+    ('sessions.complete'),
+    ('sessions.archive'),
+    ('patients.read'),
+    ('patients.write'),
+    ('master.read'),
+    ('notes.write'),
+    ('ai.run')) AS v
+  WHERE g.code = 'nurse' AND g.is_system = 1
+    AND NOT EXISTS (SELECT 1 FROM group_permissions x WHERE x.group_id = g.id);  -- only a group with no permissions yet, so edits survive a re-run
+UPDATE users SET group_id = (SELECT id FROM user_groups WHERE code = users.role) WHERE group_id IS NULL;

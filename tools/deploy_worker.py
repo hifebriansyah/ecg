@@ -49,24 +49,36 @@ def main():
     code = (ECG / "worker" / cfg["main"]).read_text(encoding="utf-8")
     bindings = [{"type": "d1", "name": cfg["d1"]["binding"], "id": json.loads(db_file.read_text())["database_id"]}]
     bindings += [{"type": "plain_text", "name": k, "text": v} for k, v in cfg.get("vars", {}).items()]
+    bindings += [{"type": "durable_object_namespace", "name": o["name"], "class_name": o["class_name"]} for o in cfg.get("durable_objects", [])]
     metadata = {"main_module": cfg["main"], "compatibility_date": cfg["compatibility_date"], "bindings": bindings,
                 "keep_bindings": ["secret_text"]}
 
-    boundary = uuid.uuid4().hex
-    body = b""
-    for name, filename, ctype, content in [("metadata", None, "application/json", json.dumps(metadata)),
-                                           (cfg["main"], cfg["main"], "application/javascript+module", code)]:
-        disp = f'form-data; name="{name}"' + (f'; filename="{filename}"' if filename else "")
-        body += f"--{boundary}\r\nContent-Disposition: {disp}\r\nContent-Type: {ctype}\r\n\r\n{content}\r\n".encode()
-    body += f"--{boundary}--\r\n".encode()
-    req = urllib.request.Request(
-        f"{BASE}/accounts/{account}/workers/scripts/{cfg['name']}", data=body, method="PUT",
-        headers={"Authorization": f"Bearer {token}", "Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "ecg-deploy/1.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=60) as res:
-            payload = json.loads(res.read())
-    except urllib.error.HTTPError as e:
-        sys.exit(f"Deploy failed: HTTP {e.code}\n{e.read().decode('utf-8', 'replace')[:500]}")
+    def upload(meta):
+        boundary = uuid.uuid4().hex
+        body = b""
+        for name, filename, ctype, content in [("metadata", None, "application/json", json.dumps(meta)),
+                                               (cfg["main"], cfg["main"], "application/javascript+module", code)]:
+            disp = f'form-data; name="{name}"' + (f'; filename="{filename}"' if filename else "")
+            body += f"--{boundary}\r\nContent-Disposition: {disp}\r\nContent-Type: {ctype}\r\n\r\n{content}\r\n".encode()
+        body += f"--{boundary}--\r\n".encode()
+        req = urllib.request.Request(
+            f"{BASE}/accounts/{account}/workers/scripts/{cfg['name']}", data=body, method="PUT",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "ecg-deploy/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as res:
+                return json.loads(res.read()), None
+        except urllib.error.HTTPError as e:
+            return None, f"HTTP {e.code}\n{e.read().decode('utf-8', 'replace')[:600]}"
+
+    # The Durable Object class is registered by a migration. Sending the same migration tag again is refused, so on that refusal
+    # upload again without it (the class already exists).
+    mig = cfg.get("migration")
+    payload, err = upload({**metadata, "migrations": {"new_tag": mig["tag"], "new_sqlite_classes": mig["new_sqlite_classes"]}} if mig else metadata)
+    if err and mig and "migration" in err.lower():
+        print("Migration already applied; uploading without it.")
+        payload, err = upload(metadata)
+    if err:
+        sys.exit(f"Deploy failed: {err}")
     if not payload.get("success"):
         sys.exit(f"Deploy failed: {payload.get('errors')}")
     print(f"Deployed worker '{cfg['name']}' ({len(code)} bytes).")
@@ -76,12 +88,13 @@ def main():
              {"name": "INGEST_TOKEN", "text": ingest, "type": "secret_text"}), "Setting INGEST_TOKEN")
     print("Secret INGEST_TOKEN set on the Worker.")
 
-    # No custom domain yet: serve it on <account>.workers.dev.
+    # Always keep the <account>.workers.dev address on; the custom domain ("domain" in api.jsonc, see set_domain.py) is the public one.
     need(api("POST", f"/accounts/{account}/workers/scripts/{cfg['name']}/subdomain", token, {"enabled": True}), "Turning on workers.dev")
     sub = need(api("GET", f"/accounts/{account}/workers/subdomain", token), "Reading the workers.dev subdomain")["subdomain"]
     url = f"https://{cfg['name']}.{sub}.workers.dev"
-    (ECG / "worker" / "api-url.txt").write_text(url + "\n", encoding="utf-8")
-    print(f"API: {url}")
+    public = f"https://{cfg['domain']}" if cfg.get("domain") else url
+    (ECG / "worker" / "api-url.txt").write_text(public + "\n", encoding="utf-8")
+    print(f"API: {public}" + (f"  (also {url})" if public != url else ""))
 
 
 if __name__ == "__main__":

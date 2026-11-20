@@ -1,5 +1,7 @@
+import { t } from './i18n.jsx';
+
 // Small client for the DETAKITA API (ecg/worker/api.js).
-export const API_URL = (import.meta.env.VITE_API_URL || 'https://ecg-api.hifebriansyah.workers.dev').replace(/\/$/, '');
+export const API_URL = (import.meta.env.VITE_API_URL || 'https://api-ecg.situs.id').replace(/\/$/, '');
 
 const TOKEN_KEY = 'detakita.token';
 
@@ -31,7 +33,7 @@ export async function api(path, { method = 'GET', body, token = getToken(), sign
     });
   } catch (e) {
     if (e.name === 'AbortError') throw e;
-    throw new ApiError(0, { code: 'network', message: 'Tidak dapat terhubung ke server' });
+    throw new ApiError(0, { code: 'network', message: t('Tidak dapat terhubung ke server') });
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, data.error);

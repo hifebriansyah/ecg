@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, getToken, setToken } from './api.js';
+import { t } from './i18n.jsx';
 
 // Roles from the API, with the labels the UI shows.
 export const ROLES = [
@@ -30,7 +31,7 @@ export function AuthProvider({ children }) {
     const res = await api('/auth/login', { method: 'POST', body: { email, password }, token: null });
     if (role && res.user.role !== role) {
       await api('/auth/logout', { method: 'POST', token: res.token }).catch(() => {});
-      const err = new Error(`Akun ini terdaftar sebagai ${roleLabel(res.user.role)}, bukan ${roleLabel(role)}.`);
+      const err = new Error(t('Akun ini terdaftar sebagai {actual}, bukan {picked}.', { actual: t(roleLabel(res.user.role)), picked: t(roleLabel(role)) }));
       err.code = 'wrong_role';
       throw err;
     }

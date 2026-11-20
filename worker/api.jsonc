@@ -3,8 +3,13 @@
   "name": "ecg-api",
   "main": "api.js",
   "compatibility_date": "2025-09-01",
+  // Custom domain, attached by: python3 ecg/tools/set_domain.py (the workers.dev address keeps working).
+  "domain": "api-ecg.situs.id",
   // D1 database "ecg"; its id is in db/d1.json (written by tools/setup_db.py).
   "d1": { "binding": "DB", "name": "ecg" },
+  // Live stream: one Durable Object (SQLite-backed, as the free plan requires) per session; "migration" registers the class once.
+  "durable_objects": [{ "name": "HUB", "class_name": "SessionHub" }],
+  "migration": { "tag": "v1", "new_sqlite_classes": ["SessionHub"] },
   // Plain variables, set on every deploy. The secret INGEST_TOKEN (device key) is copied from .env ECG_INGEST_TOKEN.
   "vars": {
     "ALLOWED_ORIGINS": "*",

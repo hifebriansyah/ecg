@@ -1,5 +1,6 @@
 import { LoaderCircle, X } from 'lucide-react';
 import { cx } from './ui.jsx';
+import { t } from '../lib/i18n.jsx';
 
 // Floating dark action bar for selected rows (session list design). actions: [{ key, icon, label, onClick, danger, title }]
 export default function BulkBar({ count, onClear, actions, busy }) {
@@ -10,14 +11,14 @@ export default function BulkBar({ count, onClear, actions, busy }) {
         <span className="flex size-7 items-center justify-center rounded-full bg-primary-container font-mono text-xs font-bold">{count}</span>
         <span className="mx-2 h-5 w-px bg-white/20" />
         {actions.map((a) => (
-          <button key={a.key} type="button" onClick={a.onClick} disabled={busy} title={a.title || a.label}
+          <button key={a.key} type="button" onClick={a.onClick} disabled={busy} title={t(a.title || a.label)}
             className={cx('flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium transition-colors disabled:opacity-50', a.danger ? 'text-[#ffb4ab] hover:bg-white/10' : 'hover:bg-white/10')}>
             {busy === a.key ? <LoaderCircle className="size-4 animate-spin" /> : <a.icon className="size-4" />}
-            {a.label && <span className="hidden sm:inline">{a.label}</span>}
+            {a.label && <span className="hidden sm:inline">{t(a.label)}</span>}
           </button>
         ))}
         <span className="mx-2 h-5 w-px bg-white/20" />
-        <button type="button" onClick={onClear} className="rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white" aria-label="Batalkan pilihan"><X className="size-4" /></button>
+        <button type="button" onClick={onClear} className="rounded-lg p-1.5 text-white/70 hover:bg-white/10 hover:text-white" aria-label={t('Batalkan pilihan')}><X className="size-4" /></button>
       </div>
     </div>
   );

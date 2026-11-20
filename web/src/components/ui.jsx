@@ -7,6 +7,7 @@ import {
   SlidersHorizontal, X,
 } from 'lucide-react';
 import { initials } from '../lib/format.js';
+import { t } from '../lib/i18n.jsx';
 
 export const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -112,17 +113,17 @@ export function StatusPill({ tone, children, className }) {
 }
 
 export function Spinner({ className }) {
-  return <LoaderCircle className={cx('size-5 animate-spin text-outline', className)} aria-label="Memuat" />;
+  return <LoaderCircle className={cx('size-5 animate-spin text-outline', className)} aria-label={t('Memuat')} />;
 }
 export function LoadingBlock({ label = 'Memuat data…' }) {
-  return <div className="flex items-center justify-center gap-2 py-16 text-sm text-outline"><Spinner />{label}</div>;
+  return <div className="flex items-center justify-center gap-2 py-16 text-sm text-outline"><Spinner />{t(label)}</div>;
 }
 export function ErrorBlock({ error, onRetry }) {
   return (
     <div className="flex flex-col items-center gap-3 py-14 text-center">
       <AlertCircle className="size-8 text-error" />
-      <p className="text-sm text-on-surface-variant">{error?.message || 'Gagal memuat data.'}</p>
-      {onRetry && <Button variant="secondary" onClick={onRetry}>Coba lagi</Button>}
+      <p className="text-sm text-on-surface-variant">{error?.message || t('Gagal memuat data.')}</p>
+      {onRetry && <Button variant="secondary" onClick={onRetry}>{t('Coba lagi')}</Button>}
     </div>
   );
 }
@@ -130,8 +131,8 @@ export function EmptyState({ icon: Icon, title, text, action }) {
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-14 text-center">
       {Icon && <div className="mb-2 flex size-14 items-center justify-center rounded-full bg-surface-container-low text-outline"><Icon className="size-7" /></div>}
-      <p className="font-headline text-lg font-semibold">{title}</p>
-      {text && <p className="max-w-sm text-sm text-outline">{text}</p>}
+      <p className="font-headline text-lg font-semibold">{t(title)}</p>
+      {text && <p className="max-w-sm text-sm text-outline">{t(text)}</p>}
       {action && <div className="mt-3">{action}</div>}
     </div>
   );
@@ -142,22 +143,22 @@ export function Pagination({ page, limit, total, onPage }) {
   if (total <= limit) return null;
   return (
     <div className="flex items-center justify-between border-t border-outline-variant/20 px-4 py-3 text-sm text-outline sm:px-6">
-      <span>{(page - 1) * limit + 1}–{Math.min(page * limit, total)} dari {total}</span>
+      <span>{t('{from}–{to} dari {total}', { from: (page - 1) * limit + 1, to: Math.min(page * limit, total), total })}</span>
       <div className="flex items-center gap-1">
-        <button className="rounded-md p-1.5 hover:bg-surface-container-low disabled:opacity-40" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Halaman sebelumnya"><ChevronLeft className="size-4" /></button>
+        <button className="rounded-md p-1.5 hover:bg-surface-container-low disabled:opacity-40" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label={t('Halaman sebelumnya')}><ChevronLeft className="size-4" /></button>
         <span className="px-2 font-mono text-xs">{page} / {pages}</span>
-        <button className="rounded-md p-1.5 hover:bg-surface-container-low disabled:opacity-40" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="Halaman berikutnya"><ChevronRight className="size-4" /></button>
+        <button className="rounded-md p-1.5 hover:bg-surface-container-low disabled:opacity-40" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label={t('Halaman berikutnya')}><ChevronRight className="size-4" /></button>
       </div>
     </div>
   );
 }
 
-export function Checkbox({ checked, indeterminate, onChange, label }) {
+export function Checkbox({ checked, indeterminate, onChange, label, disabled }) {
   const ref = useRef(null);
   useEffect(() => { if (ref.current) ref.current.indeterminate = !!indeterminate; }, [indeterminate]);
   return (
     <input
-      ref={ref} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-label={label}
+      ref={ref} type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} aria-label={label}
       onClick={(e) => e.stopPropagation()}
       className="size-4 cursor-pointer rounded border-outline-variant accent-primary-container"
     />
@@ -192,7 +193,7 @@ export function SearchFilterBar({ search, onSearch, placeholder, filters = [], v
         {filters.length > 0 && (
           <div className="relative" ref={ref}>
             <button
-              type="button" onClick={() => { setOpen((o) => !o); setSub(null); }} title="Filter" aria-expanded={open}
+              type="button" onClick={() => { setOpen((o) => !o); setSub(null); }} title={t('Filter')} aria-expanded={open}
               className="flex size-10 items-center justify-center rounded-lg border border-outline-variant/40 text-on-surface-variant hover:bg-surface-container-low"
             >
               <SlidersHorizontal className="size-4.5" />
@@ -201,18 +202,18 @@ export function SearchFilterBar({ search, onSearch, placeholder, filters = [], v
               <div className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-2 shadow-lg">
                 {!sub ? (
                   <>
-                    <p className="mb-1 border-b border-outline-variant/20 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-outline">Pilih Kriteria Filter</p>
+                    <p className="mb-1 border-b border-outline-variant/20 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-outline">{t('Pilih Kriteria Filter')}</p>
                     {filters.map((f) => (
                       <button key={f.key} type="button" onClick={() => setSub(f)} className="block w-full rounded-lg p-2 text-left hover:bg-surface-container-low">
-                        <span className="flex items-center justify-between text-sm font-medium">{f.label}<ChevronRight className="size-4 text-outline" /></span>
-                        <span className="text-xs text-outline">{f.options.slice(0, 3).map((o) => o.label).join(', ')}</span>
+                        <span className="flex items-center justify-between text-sm font-medium">{t(f.label)}<ChevronRight className="size-4 text-outline" /></span>
+                        <span className="text-xs text-outline">{f.options.slice(0, 3).map((o) => t(o.label)).join(', ')}</span>
                       </button>
                     ))}
                   </>
                 ) : (
                   <>
                     <button type="button" onClick={() => setSub(null)} className="mb-1 flex w-full items-center gap-1 border-b border-outline-variant/20 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-outline">
-                      <ChevronLeft className="size-3.5" />{sub.label}
+                      <ChevronLeft className="size-3.5" />{t(sub.label)}
                     </button>
                     {sub.options.map((o) => {
                       const on = String(value[sub.key]) === String(o.value);
@@ -222,7 +223,7 @@ export function SearchFilterBar({ search, onSearch, placeholder, filters = [], v
                           onClick={() => { onChange({ ...value, [sub.key]: on ? undefined : o.value }); setOpen(false); setSub(null); }}
                           className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-container-low"
                         >
-                          {o.label}{on && <Check className="size-4 text-primary" />}
+                          {t(o.label)}{on && <Check className="size-4 text-primary" />}
                         </button>
                       );
                     })}
@@ -237,12 +238,12 @@ export function SearchFilterBar({ search, onSearch, placeholder, filters = [], v
         <div className="flex flex-wrap items-center gap-2">
           {active.map((f) => (
             <span key={f.key} className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant/30 bg-surface-container px-3 py-1 text-xs font-medium">
-              <span className="text-outline">{f.chip || f.label}:</span>
-              <span>{f.options.find((o) => String(o.value) === String(value[f.key]))?.label ?? value[f.key]}</span>
-              <button type="button" onClick={() => onChange({ ...value, [f.key]: undefined })} title="Hapus filter" className="text-outline hover:text-on-surface"><X className="size-3.5" /></button>
+              <span className="text-outline">{t(f.chip || f.label)}:</span>
+              <span>{t(f.options.find((o) => String(o.value) === String(value[f.key]))?.label ?? value[f.key])}</span>
+              <button type="button" onClick={() => onChange({ ...value, [f.key]: undefined })} title={t('Hapus filter')} className="text-outline hover:text-on-surface"><X className="size-3.5" /></button>
             </span>
           ))}
-          <button type="button" onClick={() => { onSearch(''); onChange({}); }} className="px-1 text-sm font-medium text-secondary hover:text-primary">Reset</button>
+          <button type="button" onClick={() => { onSearch(''); onChange({}); }} className="px-1 text-sm font-medium text-secondary hover:text-primary">{t('Reset')}</button>
         </div>
       ) : null}
     </Card>
@@ -289,8 +290,8 @@ export function Select({ label, required, error, hint, className, options, place
       {(id) => (
         <div className="relative">
           <select id={id} {...rest} aria-invalid={!!error} className={inputCls(error, 'appearance-none pr-10')}>
-            {placeholder !== undefined && <option value="">{placeholder}</option>}
-            {options.map((o) => <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>)}
+            {placeholder !== undefined && <option value="">{t(placeholder)}</option>}
+            {options.map((o) => <option key={o.value} value={o.value} disabled={o.disabled}>{t(o.label)}</option>)}
           </select>
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4.5 -translate-y-1/2 text-outline" />
         </div>
@@ -342,7 +343,7 @@ export function Modal({ open, onClose, title, icon: Icon, children, footer, size
               {Icon && <div className="flex size-9 items-center justify-center rounded-lg bg-surface-container-low text-primary"><Icon className="size-5" /></div>}
               <h2 className="font-headline text-lg font-semibold">{title}</h2>
             </div>
-            <button type="button" onClick={onClose} className="rounded-md p-1.5 text-outline hover:bg-surface-container-low" aria-label="Tutup"><X className="size-5" /></button>
+            <button type="button" onClick={onClose} className="rounded-md p-1.5 text-outline hover:bg-surface-container-low" aria-label={t('Tutup')}><X className="size-5" /></button>
           </div>
         )}
         <div className="px-6 py-5">{children}</div>
@@ -360,8 +361,8 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, text, confirmLa
         <h2 className="font-headline text-lg font-semibold">{title}</h2>
         <p className="text-sm text-on-surface-variant">{text}</p>
         <div className="mt-3 grid w-full grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={loading}>Batal</Button>
-          <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>{confirmLabel}</Button>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>{t('Batal')}</Button>
+          <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>{t(confirmLabel)}</Button>
         </div>
       </div>
     </Modal>
@@ -371,23 +372,23 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, text, confirmLa
 const ToastContext = createContext(() => {});
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
-  const push = useCallback((t) => {
+  const push = useCallback((item) => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((all) => [...all, { id, tone: 'success', ...t }]);
-    setTimeout(() => setToasts((all) => all.filter((x) => x.id !== id)), t.duration || 4000);
+    setToasts((all) => [...all, { id, tone: 'success', ...item }]);
+    setTimeout(() => setToasts((all) => all.filter((x) => x.id !== id)), item.duration || 4000);
   }, []);
   return (
     <ToastContext.Provider value={push}>
       {children}
       <div className="pointer-events-none fixed right-4 top-4 z-[70] flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2" aria-live="polite">
-        {toasts.map((t) => (
-          <div key={t.id} className="pointer-events-auto flex items-start gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-4 shadow-lg">
-            {t.tone === 'error' ? <AlertCircle className="mt-0.5 size-5 shrink-0 text-error" /> : <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-tertiary" />}
+        {toasts.map((n) => (
+          <div key={n.id} className="pointer-events-auto flex items-start gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-4 shadow-lg">
+            {n.tone === 'error' ? <AlertCircle className="mt-0.5 size-5 shrink-0 text-error" /> : <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-tertiary" />}
             <div className="min-w-0 flex-1">
-              <p className="font-headline text-sm font-semibold">{t.title}</p>
-              {t.text && <p className="mt-0.5 text-xs text-on-surface-variant">{t.text}</p>}
+              <p className="font-headline text-sm font-semibold">{t(n.title)}</p>
+              {n.text && <p className="mt-0.5 text-xs text-on-surface-variant">{t(n.text)}</p>}
             </div>
-            <button type="button" onClick={() => setToasts((all) => all.filter((x) => x.id !== t.id))} className="text-outline hover:text-on-surface" aria-label="Tutup"><X className="size-4" /></button>
+            <button type="button" onClick={() => setToasts((all) => all.filter((x) => x.id !== n.id))} className="text-outline hover:text-on-surface" aria-label={t('Tutup')}><X className="size-4" /></button>
           </div>
         ))}
       </div>
@@ -404,5 +405,5 @@ const FIELD_MSG = {
 };
 export function fieldErrors(err) {
   if (!err?.fields) return {};
-  return Object.fromEntries(Object.entries(err.fields).map(([k, v]) => [k, FIELD_MSG[v] || v]));
+  return Object.fromEntries(Object.entries(err.fields).map(([k, v]) => [k, t(FIELD_MSG[v] || v)]));
 }

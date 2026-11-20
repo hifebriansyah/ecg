@@ -1,13 +1,14 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
-  ChevronDown, ChevronsUpDown, CirclePlus, Database, HeartPulse, Languages, LayoutGrid, LogOut, Menu, Settings, Activity, X,
+  ChevronDown, ChevronsUpDown, CirclePlus, Database, HeartPulse, Languages, LayoutGrid, FileText, LogOut, Menu, Settings, Activity, X,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import { api } from '../lib/api.js';
 import { useApi } from '../lib/useApi.js';
 import { Modal, cx, useToast } from './ui.jsx';
 import { initials } from '../lib/format.js';
+import { t } from '../lib/i18n.jsx';
 
 // Sidebar counts (Berjalan / Selesai), refreshed every 30 s and after actions that change them.
 const StatsContext = createContext({ stats: null, reloadStats: () => {} });
@@ -50,12 +51,12 @@ function LanguageDialog({ open, onClose }) {
     try {
       await api('/me', { method: 'PATCH', body: { language } });
       await refreshUser();
-      toast({ title: 'Bahasa disimpan', text: language === 'en' ? 'English dipilih. Tampilan saat ini masih berbahasa Indonesia.' : 'Bahasa Indonesia dipilih.' });
+      toast({ title: t('Bahasa disimpan'), text: language === 'en' ? t('English dipilih.') : t('Bahasa Indonesia dipilih.') });
       onClose();
-    } catch (e) { toast({ tone: 'error', title: 'Gagal menyimpan', text: e.message }); } finally { setBusy(false); }
+    } catch (e) { toast({ tone: 'error', title: t('Gagal menyimpan'), text: e.message }); } finally { setBusy(false); }
   }
   return (
-    <Modal open={open} onClose={onClose} title="Bahasa" icon={Languages} size="sm">
+    <Modal open={open} onClose={onClose} title={t('Bahasa')} icon={Languages} size="sm">
       <div className="grid gap-2">
         {[['id', 'Bahasa Indonesia'], ['en', 'English']].map(([code, label]) => (
           <button key={code} type="button" disabled={busy} onClick={() => pick(code)}
@@ -91,11 +92,11 @@ function UserMenu() {
             <p className="truncate font-mono text-xs text-outline">{user.email}</p>
           </div>
           <button type="button" className={item} onClick={() => { setOpen(false); setLang(true); }}>
-            <Languages className="size-4.5" />Bahasa<span className="ml-auto font-mono text-xs uppercase text-outline">{user.language}</span>
+            <Languages className="size-4.5" />{t('Bahasa')}<span className="ml-auto font-mono text-xs uppercase text-outline">{user.language}</span>
           </button>
-          <button type="button" className={item} onClick={() => { setOpen(false); navigate('/pengaturan'); }}><Settings className="size-4.5" />Setting</button>
+          <button type="button" className={item} onClick={() => { setOpen(false); navigate('/pengaturan'); }}><Settings className="size-4.5" />{t('Setting')}</button>
           <div className="my-1 border-t border-outline-variant/20" />
-          <button type="button" className={cx(item, '!text-error hover:!bg-error-container')} onClick={logout}><LogOut className="size-4.5" />Logout</button>
+          <button type="button" className={cx(item, '!text-error hover:!bg-error-container')} onClick={logout}><LogOut className="size-4.5" />{t('Logout')}</button>
         </div>
       )}
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
@@ -104,7 +105,7 @@ function UserMenu() {
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-sm font-bold text-on-primary">{initials(user.name)}</span>
           <span className="flex min-w-0 flex-col">
             <span className="truncate font-headline text-sm font-semibold">{user.name}</span>
-            <span className="font-mono text-xs text-outline">{user.role_label}</span>
+            <span className="font-mono text-xs text-outline">{t(user.role_label)}</span>
           </span>
         </span>
         <ChevronsUpDown className="size-4.5 text-outline" />
@@ -127,18 +128,33 @@ function Sidebar({ stats, onNavigate }) {
         </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3" onClick={onNavigate}>
-        <NavLink to="/" end className={linkCls}><LayoutGrid className="size-5" />Dashboard</NavLink>
-        {can('sessions.create') && <NavLink to="/sesi/baru" className={linkCls}><CirclePlus className="size-5" />Tambah Sesi</NavLink>}
-        <Group icon={Activity} label="Sesi Pemeriksaan">
-          <NavLink to="/sesi/berjalan" className={subLinkCls}><span>Berjalan</span><Count n={s?.running} strong /></NavLink>
-          <NavLink to="/sesi/selesai" className={subLinkCls}><span>Selesai</span><Count n={s?.completed} /></NavLink>
-          <NavLink to="/sesi/arsip" className={subLinkCls}><span>Arsip</span></NavLink>
+        <NavLink to="/" end className={linkCls}><LayoutGrid className="size-5" />{t('Dashboard')}</NavLink>
+        {can('sessions.create') && <NavLink to="/sesi/baru" className={linkCls}><CirclePlus className="size-5" />{t('Tambah Sesi')}</NavLink>}
+        {(can('sessions.read_all') || can('sessions.read_own')) && (
+          <Group icon={Activity} label={t('Sesi Pemeriksaan')}>
+            <NavLink to="/sesi/berjalan" className={subLinkCls}><span>{t('Berjalan')}</span><Count n={s?.running} strong /></NavLink>
+            <NavLink to="/sesi/selesai" className={subLinkCls}><span>{t('Selesai')}</span><Count n={s?.completed} /></NavLink>
+            <NavLink to="/sesi/arsip" className={subLinkCls}><span>{t('Arsip')}</span></NavLink>
+          </Group>
+        )}
+        {(can('master.read') || can('patients.read')) && (
+          <Group icon={Database} label={t('Master Data')}>
+            {can('master.read') && <NavLink to="/master/dokter" className={subLinkCls}><span>{t('Dokter')}</span></NavLink>}
+            {can('master.read') && <NavLink to="/master/perawat" className={subLinkCls}><span>{t('Perawat')}</span></NavLink>}
+            {can('patients.read') && <NavLink to="/master/pasien" className={subLinkCls}><span>{t('Pasien')}</span></NavLink>}
+          </Group>
+        )}
+        <Group icon={FileText} label={t('Dokumen')}>
+          <NavLink to="/dokumen/panduan-pengujian" className={subLinkCls}><span>{t('Panduan Pengujian')}</span></NavLink>
+          <NavLink to="/dokumen/manajemen-risiko" className={subLinkCls}><span>{t('Manajemen Risiko')}</span></NavLink>
         </Group>
-        <Group icon={Database} label="Master Data">
-          <NavLink to="/master/dokter" className={subLinkCls}><span>Dokter</span></NavLink>
-          <NavLink to="/master/perawat" className={subLinkCls}><span>Perawat</span></NavLink>
-          <NavLink to="/master/pasien" className={subLinkCls}><span>Pasien</span></NavLink>
-        </Group>
+        {can('config.manage') && (
+          <Group icon={Settings} label={t('Konfigurasi')}>
+            <NavLink to="/konfigurasi/izin" className={subLinkCls}><span>{t('Izin')}</span></NavLink>
+            <NavLink to="/konfigurasi/grup" className={subLinkCls}><span>{t('Grup')}</span></NavLink>
+            <NavLink to="/konfigurasi/simulator" className={subLinkCls}><span>{t('Simulator')}</span></NavLink>
+          </Group>
+        )}
       </nav>
       <UserMenu />
     </div>
@@ -146,7 +162,8 @@ function Sidebar({ stats, onNavigate }) {
 }
 
 export default function Layout() {
-  const { data: stats, reload } = useApi('/stats', { poll: 30000 });
+  const { can } = useAuth();
+  const { data: stats, reload } = useApi(can('dashboard.view') || can('sessions.read_own') || can('sessions.read_all') ? '/stats' : null, { poll: 30000 });
   const [drawer, setDrawer] = useState(false);
   const location = useLocation();
   useEffect(() => { setDrawer(false); }, [location.pathname]);
@@ -163,14 +180,14 @@ export default function Layout() {
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary-container text-on-primary"><HeartPulse className="size-4.5" /></div>
           <span className="font-headline font-bold">DETAKITA</span>
         </div>
-        <button type="button" onClick={() => setDrawer(true)} className="rounded-lg p-2 hover:bg-surface-container-low" aria-label="Buka menu"><Menu className="size-5" /></button>
+        <button type="button" onClick={() => setDrawer(true)} className="rounded-lg p-2 hover:bg-surface-container-low" aria-label={t('Buka menu')}><Menu className="size-5" /></button>
       </header>
       {drawer && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-inverse-surface/40" onClick={() => setDrawer(false)} />
+          <div className="absolute inset-0 cursor-pointer bg-inverse-surface/40" onClick={() => setDrawer(false)} />
           <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] shadow-2xl">
             <Sidebar stats={stats} />
-            <button type="button" onClick={() => setDrawer(false)} className="absolute right-3 top-4 rounded-md p-1.5 text-outline hover:bg-surface-container-low" aria-label="Tutup menu"><X className="size-5" /></button>
+            <button type="button" onClick={() => setDrawer(false)} className="absolute right-3 top-4 rounded-md p-1.5 text-outline hover:bg-surface-container-low" aria-label={t('Tutup menu')}><X className="size-5" /></button>
           </div>
         </div>
       )}

@@ -64,12 +64,23 @@ def database(account, token):
     return created["uuid"]
 
 
+def ensure_columns(account, token, db_id):
+    """Columns added after the first release (CREATE TABLE IF NOT EXISTS cannot add them to an existing table)."""
+    url = f"/accounts/{account}/d1/database/{db_id}/query"
+    for table, column, ddl in [("users", "group_id", "ALTER TABLE users ADD COLUMN group_id INTEGER REFERENCES user_groups(id) ON DELETE SET NULL")]:
+        rows = need(api("POST", url, token, {"sql": f"PRAGMA table_info({table})"}), f"Reading {table}")[0]["results"]
+        if rows and column not in [r["name"] for r in rows]:
+            need(api("POST", url, token, {"sql": ddl}), f"Adding {table}.{column}")
+            print(f"Added column {table}.{column}")
+
+
 def main():
     load_env()
     token, account = os.environ.get("CLOUDFLARE_API_TOKEN"), os.environ.get("CLOUDFLARE_ACCOUNT_ID")
     if not token or not account:
         sys.exit("Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in .env")
     db_id = database(account, token)
+    ensure_columns(account, token, db_id)
     # D1 always enforces foreign keys; it does not accept the PRAGMA line meant for local SQLite.
     sql = "\n".join(l for l in (ECG / "db" / "schema.sql").read_text(encoding="utf-8").splitlines()
                     if not l.strip().upper().startswith("PRAGMA"))

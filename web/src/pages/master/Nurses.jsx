@@ -3,11 +3,13 @@ import { useNavigate, useParams } from 'react-router';
 import { BriefcaseMedical, Check, Phone, Plus, ShieldPlus, Trash2, UserCheck, UserPlus, UserRound, UserX } from 'lucide-react';
 import { api } from '../../lib/api.js';
 import { useAuth } from '../../lib/auth.jsx';
+import { t } from '../../lib/i18n.jsx';
 import { useApi } from '../../lib/useApi.js';
 import { useList } from '../../lib/useList.js';
 import { SHIFTS, SIMPLE_STATUS } from '../../lib/format.js';
 import DataTable from '../../components/DataTable.jsx';
 import BulkBar from '../../components/BulkBar.jsx';
+import PasswordCard from '../../components/PasswordCard.jsx';
 import {
   Avatar, Button, CodeTag, ConfirmDialog, ErrorBlock, Input, LoadingBlock, Modal, PageHeader, SearchFilterBar,
   SectionCard, Select, StatusPill, Toggle, fieldErrors, useToast,
@@ -28,31 +30,31 @@ function AddNurseDialog({ open, onClose, onSaved, lookups }) {
 
   async function save() {
     const errs = {};
-    if (!form.full_name.trim()) errs.full_name = 'Wajib diisi';
-    if (!form.nik.trim()) errs.nik = 'Wajib diisi';
+    if (!form.full_name.trim()) errs.full_name = t('Wajib diisi');
+    if (!form.nik.trim()) errs.nik = t('Wajib diisi');
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setSaving(true);
     try {
       const saved = await api('/nurses', { method: 'POST', body: { ...form, unit_id: form.unit_id ? Number(form.unit_id) : null, nira: form.nira || null } });
-      toast({ title: 'Perawat ditambahkan', text: saved.full_name });
+      toast({ title: t('Perawat ditambahkan'), text: saved.full_name });
       onSaved(saved);
-    } catch (err) { setErrors(fieldErrors(err)); toast({ tone: 'error', title: 'Gagal menyimpan', text: err.message }); } finally { setSaving(false); }
+    } catch (err) { setErrors(fieldErrors(err)); toast({ tone: 'error', title: t('Gagal menyimpan'), text: err.message }); } finally { setSaving(false); }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Tambah Tenaga Perawat" icon={UserPlus}
-      footer={<><Button variant="secondary" onClick={onClose}>Batal</Button><Button icon={Check} onClick={save} loading={saving}>Simpan Data Perawat</Button></>}>
+    <Modal open={open} onClose={onClose} title={t('Tambah Tenaga Perawat')} icon={UserPlus}
+      footer={<><Button variant="secondary" onClick={onClose}>{t('Batal')}</Button><Button icon={Check} onClick={save} loading={saving}>{t('Simpan Data Perawat')}</Button></>}>
       <div className="grid gap-4">
-        <Input label="Nama Lengkap beserta Gelar" required value={form.full_name} onChange={set('full_name')} error={errors.full_name} placeholder="Contoh: Ns. Anita Rahmawati, S.Kep" />
+        <Input label={t('Nama Lengkap beserta Gelar')} required value={form.full_name} onChange={set('full_name')} error={errors.full_name} placeholder={t('Contoh: Ns. Anita Rahmawati, S.Kep')} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="NIK / NIP" required value={form.nik} onChange={set('nik')} error={errors.nik} placeholder="16 digit NIK atau NIP RS" mono />
-          <Input label="Nomor Registrasi NIRA" value={form.nira} onChange={set('nira')} error={errors.nira} placeholder="3174XXXXXXXX" mono />
+          <Input label={t('NIK / NIP')} required value={form.nik} onChange={set('nik')} error={errors.nik} placeholder={t('16 digit NIK atau NIP RS')} mono />
+          <Input label={t('Nomor Registrasi NIRA')} value={form.nira} onChange={set('nira')} error={errors.nira} placeholder="3174XXXXXXXX" mono />
         </div>
-        <Select label="Unit Penugasan" value={form.unit_id} onChange={set('unit_id')} placeholder="Pilih unit…" options={unitOptions(lookups)} />
+        <Select label={t('Unit Penugasan')} value={form.unit_id} onChange={set('unit_id')} placeholder={t('Pilih unit…')} options={unitOptions(lookups)} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Select label="Shift Kerja" value={form.shift} onChange={set('shift')} options={SHIFT_OPTIONS} />
-          <Select label="Status Kepegawaian" value={form.status} onChange={set('status')} options={[{ value: 'active', label: 'Aktif' }, { value: 'inactive', label: 'Nonaktif / Cuti' }]} />
+          <Select label={t('Shift Kerja')} value={form.shift} onChange={set('shift')} options={SHIFT_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))} />
+          <Select label={t('Status Kepegawaian')} value={form.status} onChange={set('status')} options={[{ value: 'active', label: t('Aktif') }, { value: 'inactive', label: t('Nonaktif / Cuti') }]} />
         </div>
       </div>
     </Modal>
@@ -74,29 +76,29 @@ export function NurseList() {
     setBusy(status);
     try {
       await Promise.all([...list.selected].map((id) => api(`/nurses/${id}`, { method: 'PATCH', body: { status } })));
-      toast({ title: 'Status diperbarui', text: `${list.selected.size} perawat kini ${SIMPLE_STATUS[status]}.` });
+      toast({ title: t('Status diperbarui'), text: t('{n} perawat kini {status}.', { n: list.selected.size, status: t(SIMPLE_STATUS[status]) }) });
       list.clearSelection(); list.reload(true);
-    } catch (e) { toast({ tone: 'error', title: 'Gagal memperbarui', text: e.message }); } finally { setBusy(null); }
+    } catch (e) { toast({ tone: 'error', title: t('Gagal memperbarui'), text: e.message }); } finally { setBusy(null); }
   }
 
   return (
     <>
-      <PageHeader title="Daftar Perawat" badge={`${list.data?.total ?? '…'} Terdaftar`}
-        actions={admin && <Button icon={Plus} onClick={() => setAdding(true)} title="Tambah perawat"><span className="sr-only sm:not-sr-only">Tambah</span></Button>} />
+      <PageHeader title={t('Daftar Perawat')} badge={t('{n} Terdaftar', { n: list.data?.total ?? '…' })}
+        actions={admin && <Button icon={Plus} onClick={() => setAdding(true)} title={t('Tambah perawat')}><span className="sr-only sm:not-sr-only">{t('Tambah')}</span></Button>} />
       <SearchFilterBar
-        search={list.search} onSearch={list.setSearch} placeholder="Cari nama perawat, NIRA, atau ruangan..."
+        search={list.search} onSearch={list.setSearch} placeholder={t('Cari nama perawat, NIRA, atau ruangan...')}
         value={list.filters} onChange={list.setFilters}
         filters={[
-          { key: 'status', label: 'Status Kepegawaian', chip: 'Status', options: Object.entries(SIMPLE_STATUS).map(([value, label]) => ({ value, label })) },
-          { key: 'unit_id', label: 'Ruangan / Unit', chip: 'Ruangan', options: unitOptions(lookups) },
-          { key: 'shift', label: 'Shift Kerja', chip: 'Shift', options: SHIFT_OPTIONS.map((o) => ({ ...o, label: o.label.split(' (')[0] })) },
+          { key: 'status', label: t('Status Kepegawaian'), chip: t('Status'), options: Object.entries(SIMPLE_STATUS).map(([value, label]) => ({ value, label: t(label) })) },
+          { key: 'unit_id', label: t('Ruangan / Unit'), chip: t('Ruangan'), options: unitOptions(lookups) },
+          { key: 'shift', label: t('Shift Kerja'), chip: t('Shift'), options: SHIFT_OPTIONS.map((o) => ({ ...o, label: t(o.label).split(' (')[0] })) },
         ]}
       />
       <DataTable
         list={list} selectable={admin} onRowClick={(r) => navigate(`/master/perawat/${r.code}`)}
-        empty={{ icon: ShieldPlus, title: 'Belum ada perawat', text: admin ? 'Tambahkan tenaga perawat pertama.' : undefined }}
+        empty={{ icon: ShieldPlus, title: t('Belum ada perawat'), text: admin ? t('Tambahkan tenaga perawat pertama.') : undefined }}
         columns={[
-          { key: 'name', label: 'Perawat', render: (r) => (
+          { key: 'name', label: t('Perawat'), render: (r) => (
             <div className="flex items-center gap-3">
               <Avatar name={r.full_name} index={r.id} muted={r.status !== 'active'} />
               <div className="min-w-0">
@@ -105,13 +107,13 @@ export function NurseList() {
               </div>
             </div>
           ) },
-          { key: 'patients', label: 'Pasien Aktif', className: 'w-36', render: (r) => <span className={`font-headline text-base font-bold ${r.active_patients ? 'text-primary' : 'text-outline'}`}>{r.active_patients} Pasien</span> },
-          { key: 'status', label: 'Status', className: 'w-36', render: (r) => <StatusPill tone={r.status}>{SIMPLE_STATUS[r.status]}</StatusPill> },
+          { key: 'patients', label: t('Pasien Aktif'), className: 'w-36', render: (r) => <span className={`font-headline text-base font-bold ${r.active_patients ? 'text-primary' : 'text-outline'}`}>{t('{n} Pasien', { n: r.active_patients })}</span> },
+          { key: 'status', label: t('Status'), className: 'w-36', render: (r) => <StatusPill tone={r.status}>{t(SIMPLE_STATUS[r.status])}</StatusPill> },
         ]}
       />
       <BulkBar count={list.selected.size} onClear={list.clearSelection} busy={busy} actions={[
-        { key: 'active', icon: UserCheck, label: 'Aktifkan', onClick: () => setStatus('active') },
-        { key: 'inactive', icon: UserX, label: 'Nonaktifkan', onClick: () => setStatus('inactive') },
+        { key: 'active', icon: UserCheck, label: t('Aktifkan'), onClick: () => setStatus('active') },
+        { key: 'inactive', icon: UserX, label: t('Nonaktifkan'), onClick: () => setStatus('inactive') },
       ]} />
       <AddNurseDialog open={adding} onClose={() => setAdding(false)} lookups={lookups} onSaved={(n) => { setAdding(false); list.reload(true); navigate(`/master/perawat/${n.code}`); }} />
     </>
@@ -141,7 +143,7 @@ export function NurseForm() {
   async function save(e) {
     e?.preventDefault();
     const errs = {};
-    for (const k of ['full_name', 'nik']) if (!String(form[k]).trim()) errs[k] = 'Wajib diisi';
+    for (const k of ['full_name', 'nik']) if (!String(form[k]).trim()) errs[k] = t('Wajib diisi');
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setSaving(true);
@@ -150,18 +152,18 @@ export function NurseForm() {
       body.unit_id = body.unit_id ? Number(body.unit_id) : null;
       const saved = await api(`/nurses/${nurse.data.id}`, { method: 'PATCH', body });
       nurse.setData(saved);
-      toast({ title: 'Perubahan disimpan', text: saved.full_name });
-    } catch (err) { setErrors(fieldErrors(err)); toast({ tone: 'error', title: 'Gagal menyimpan', text: err.message }); } finally { setSaving(false); }
+      toast({ title: t('Perubahan disimpan'), text: saved.full_name });
+    } catch (err) { setErrors(fieldErrors(err)); toast({ tone: 'error', title: t('Gagal menyimpan'), text: err.message }); } finally { setSaving(false); }
   }
 
   async function remove() {
     setDeleting(true);
     try {
       await api(`/nurses/${nurse.data.id}`, { method: 'DELETE' });
-      toast({ title: 'Perawat dihapus', text: nurse.data.full_name });
+      toast({ title: t('Perawat dihapus'), text: nurse.data.full_name });
       navigate('/master/perawat', { replace: true });
     } catch (err) {
-      toast({ tone: 'error', title: 'Tidak dapat dihapus', text: err.status === 409 ? 'Perawat ini tercatat di sesi pemeriksaan. Ubah statusnya menjadi Nonaktif.' : err.message });
+      toast({ tone: 'error', title: t('Tidak dapat dihapus'), text: err.status === 409 ? t('Perawat ini tercatat di sesi pemeriksaan. Ubah statusnya menjadi Nonaktif.') : err.message });
       setConfirm(false);
     } finally { setDeleting(false); }
   }
@@ -172,43 +174,44 @@ export function NurseForm() {
   return (
     <form onSubmit={save} noValidate>
       <PageHeader
-        back={{ to: '/master/perawat', label: 'Kembali ke Master Perawat' }}
+        back={{ to: '/master/perawat', label: t('Kembali ke Master Perawat') }}
         code={<CodeTag>#{nurse.data.code}</CodeTag>}
         actions={(
           <>
-            <span className="text-sm text-outline">Status:</span>
-            <Toggle checked={form.status === 'active'} onChange={(on) => setForm((f) => ({ ...f, status: on ? 'active' : 'inactive' }))} label={SIMPLE_STATUS[form.status]} disabled={!canEdit} />
-            {canEdit && <Button variant="secondary" icon={Trash2} onClick={() => setConfirm(true)} className="!px-3" title="Hapus perawat"><span className="sr-only">Hapus</span></Button>}
-            {canEdit && <Button type="submit" icon={Check} loading={saving}>Simpan</Button>}
+            <span className="text-sm text-outline">{t('Status:')}</span>
+            <Toggle checked={form.status === 'active'} onChange={(on) => setForm((f) => ({ ...f, status: on ? 'active' : 'inactive' }))} label={t(SIMPLE_STATUS[form.status])} disabled={!canEdit} />
+            {canEdit && <Button variant="secondary" icon={Trash2} onClick={() => setConfirm(true)} className="!px-3" title={t('Hapus perawat')}><span className="sr-only">{t('Hapus')}</span></Button>}
+            {canEdit && <Button type="submit" icon={Check} loading={saving}>{t('Simpan')}</Button>}
           </>
         )}
       />
       <div className="space-y-4">
-        <SectionCard icon={UserRound} title="Informasi Pribadi" subtitle="Identitas dan legalitas praktik keperawatan">
+        <SectionCard icon={UserRound} title={t('Informasi Pribadi')} subtitle={t('Identitas dan legalitas praktik keperawatan')}>
           <fieldset disabled={!canEdit} className="grid gap-5 sm:grid-cols-2">
-            <Input label="Nama Lengkap" required value={form.full_name} onChange={set('full_name')} error={errors.full_name} placeholder="Contoh: Ns. Siti Rahmawati, S.Kep" className="sm:col-span-2" />
-            <Input label="Nomor Induk Kependudukan" required value={form.nik} onChange={set('nik')} error={errors.nik} placeholder="16 Digit NIK KTP atau NIP Rumah Sakit" mono />
-            <Input label="Nomor Registrasi NIRA" value={form.nira} onChange={set('nira')} error={errors.nira} mono />
-            <Input label="Nomor SIPP" value={form.sipp_number} onChange={set('sipp_number')} error={errors.sipp_number} placeholder="Contoh: 446/2088/SIPP/2023" mono />
-            <Input label="Nomor STR Perawat" value={form.str_number} onChange={set('str_number')} error={errors.str_number} placeholder="Contoh: 31.2.1.200.3.22.189402" mono />
+            <Input label={t('Nama Lengkap')} required value={form.full_name} onChange={set('full_name')} error={errors.full_name} placeholder={t('Contoh: Ns. Siti Rahmawati, S.Kep')} className="sm:col-span-2" />
+            <Input label={t('Nomor Induk Kependudukan')} required value={form.nik} onChange={set('nik')} error={errors.nik} placeholder={t('16 Digit NIK KTP atau NIP Rumah Sakit')} mono />
+            <Input label={t('Nomor Registrasi NIRA')} value={form.nira} onChange={set('nira')} error={errors.nira} mono />
+            <Input label={t('Nomor SIPP')} value={form.sipp_number} onChange={set('sipp_number')} error={errors.sipp_number} placeholder={t('Contoh: 446/2088/SIPP/2023')} mono />
+            <Input label={t('Nomor STR Perawat')} value={form.str_number} onChange={set('str_number')} error={errors.str_number} placeholder={t('Contoh: 31.2.1.200.3.22.189402')} mono />
           </fieldset>
         </SectionCard>
-        <SectionCard icon={BriefcaseMedical} title="Penugasan" subtitle="Unit, jabatan, dan shift kerja">
+        <SectionCard icon={BriefcaseMedical} title={t('Penugasan')} subtitle={t('Unit, jabatan, dan shift kerja')}>
           <fieldset disabled={!canEdit} className="grid gap-5 sm:grid-cols-2">
-            <Input label="Jabatan" value={form.position} onChange={set('position')} placeholder="Contoh: Koordinator Perawat Telemetri" />
-            <Select label="Unit Penugasan" value={form.unit_id} onChange={set('unit_id')} placeholder="Pilih unit…" options={unitOptions(lookups)} />
-            <Select label="Shift Kerja" value={form.shift} onChange={set('shift')} placeholder="Pilih shift…" options={SHIFT_OPTIONS} />
+            <Input label={t('Jabatan')} value={form.position} onChange={set('position')} placeholder={t('Contoh: Koordinator Perawat Telemetri')} />
+            <Select label={t('Unit Penugasan')} value={form.unit_id} onChange={set('unit_id')} placeholder={t('Pilih unit…')} options={unitOptions(lookups)} />
+            <Select label={t('Shift Kerja')} value={form.shift} onChange={set('shift')} placeholder={t('Pilih shift…')} options={SHIFT_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))} />
           </fieldset>
         </SectionCard>
-        <SectionCard icon={Phone} title="Kontak" subtitle="Kanal komunikasi kedinasan">
+        <SectionCard icon={Phone} title={t('Kontak')} subtitle={t('Kanal komunikasi kedinasan')}>
           <fieldset disabled={!canEdit} className="grid gap-5 sm:grid-cols-2">
-            <Input label="Email Kedinasan" type="email" value={form.email} onChange={set('email')} error={errors.email} placeholder="nama@rs-jantung.co.id" />
-            <Input label="Nomor WhatsApp" type="tel" value={form.whatsapp} onChange={set('whatsapp')} error={errors.whatsapp} placeholder="+62 812-xxxx-xxxx" icon={Phone} mono />
+            <Input label={t('Email Kedinasan')} type="email" value={form.email} onChange={set('email')} error={errors.email} placeholder="nama@rs-jantung.co.id" />
+            <Input label={t('Nomor WhatsApp')} type="tel" value={form.whatsapp} onChange={set('whatsapp')} error={errors.whatsapp} placeholder="+62 812-xxxx-xxxx" icon={Phone} mono />
           </fieldset>
         </SectionCard>
+        <PasswordCard path="nurses" id={nurse.data.id} />
       </div>
       <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} onConfirm={remove} loading={deleting}
-        title="Hapus perawat?" text={`${nurse.data.full_name} akan dihapus permanen dari master data.`} />
+        title={t('Hapus perawat?')} text={t('{name} akan dihapus permanen dari master data.', { name: nurse.data.full_name })} />
     </form>
   );
 }

@@ -1,21 +1,30 @@
+import { locale, t } from './i18n.jsx';
+
 // Display helpers. Times come from the API as ms since 1970 (UTC) and are shown in WIB (Asia/Jakarta).
 const TZ = 'Asia/Jakarta';
-const dateFmt = new Intl.DateTimeFormat('id-ID', { timeZone: TZ, day: 'numeric', month: 'short', year: 'numeric' });
-const timeFmt = new Intl.DateTimeFormat('id-ID', { timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-const hmFmt = new Intl.DateTimeFormat('id-ID', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
-const longDateFmt = new Intl.DateTimeFormat('id-ID', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
+// Formatters are created lazily and cached per language, so dates follow the current language.
+const cache = new Map();
+const fmtr = (name, opts) => {
+  const key = `${locale()}|${name}`;
+  if (!cache.has(key)) cache.set(key, new Intl.DateTimeFormat(locale(), opts));
+  return cache.get(key);
+};
+const dateFmt = () => fmtr('date', { timeZone: TZ, day: 'numeric', month: 'short', year: 'numeric' });
+const timeFmt = () => fmtr('time', { timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+const hmFmt = () => fmtr('hm', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+const longDateFmt = () => fmtr('long', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
 
-export const fmtDate = (ms) => (ms ? dateFmt.format(ms) : '—');
-export const fmtTime = (ms) => (ms ? `${timeFmt.format(ms).replace(/\./g, ':')} WIB` : '—');
-export const fmtHM = (ms) => (ms ? `${hmFmt.format(ms).replace(/\./g, ':')} WIB` : '—');
-export const fmtDateTime = (ms) => (ms ? `${fmtDate(ms)}, ${hmFmt.format(ms).replace(/\./g, ':')} WIB` : '—');
-export const fmtBirth = (ymd) => (ymd ? longDateFmt.format(new Date(`${ymd}T00:00:00Z`)) : '—');
+export const fmtDate = (ms) => (ms ? dateFmt().format(ms) : '—');
+export const fmtTime = (ms) => (ms ? `${timeFmt().format(ms).replace(/\./g, ':')} WIB` : '—');
+export const fmtHM = (ms) => (ms ? `${hmFmt().format(ms).replace(/\./g, ':')} WIB` : '—');
+export const fmtDateTime = (ms) => (ms ? `${fmtDate(ms)}, ${hmFmt().format(ms).replace(/\./g, ':')} WIB` : '—');
+export const fmtBirth = (ymd) => (ymd ? longDateFmt().format(new Date(`${ymd}T00:00:00Z`)) : '—');
 
 // "18j 42m"
 export function fmtDuration(ms) {
   if (ms == null) return '—';
   const m = Math.max(0, Math.round(ms / 60000));
-  return `${Math.floor(m / 60)}j ${m % 60}m`;
+  return t('{h}j {m}m', { h: Math.floor(m / 60), m: m % 60 });
 }
 
 // For <input type="datetime-local">: ms -> "2026-11-17T08:30" in WIB, and back.
@@ -33,8 +42,8 @@ export function initials(name = '') {
   return (words.slice(0, 2).map((w) => w[0]).join('') || '?').toUpperCase();
 }
 
-export const sexLabel = (s) => (s === 'M' ? 'Laki-laki' : s === 'F' ? 'Perempuan' : '—');
-export const sexShort = (s) => (s === 'M' ? 'L' : s === 'F' ? 'P' : '?');
+export const sexLabel = (s) => (s === 'M' ? t('Laki-laki') : s === 'F' ? t('Perempuan') : '—');
+export const sexShort = (s) => (s === 'M' ? t('L') : s === 'F' ? t('P') : '?');
 
 export const DOCTOR_STATUS = { active: 'Aktif', leave: 'Cuti', inactive: 'Nonaktif' };
 export const SIMPLE_STATUS = { active: 'Aktif', inactive: 'Nonaktif' };

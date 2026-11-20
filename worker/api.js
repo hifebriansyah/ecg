@@ -298,7 +298,11 @@ async function getSession(env, code) {
 async function listSessions(env, url, auth) {
   const { limit, page, offset } = paging(url);
   const where = []; const args = [];
-  if (auth && auth.user && auth.user.role === 'doctor') { where.push('s.doctor_id = ?'); args.push(auth.user.doctor_id); }
+  if (auth && auth.user) {
+    const scope = sessionScope(auth.user);
+    if (scope === 'none') throw forbidden();
+    if (scope === 'own') { where.push('s.doctor_id = ?'); args.push(auth.user.doctor_id ?? -1); }
+  }
   const view = url.searchParams.get('view') || 'running';
   if (view === 'running') where.push("s.status = 'running' AND s.archived_at IS NULL");
   else if (view === 'completed') where.push("s.status = 'completed' AND s.archived_at IS NULL");
@@ -417,7 +421,8 @@ async function bulkSessions(env, input, user) {
   if (!SESSION_ACTION_PERM[input.action]) throw bad('action must be complete, archive, unarchive or delete');
   if (!can(user, SESSION_ACTION_PERM[input.action])) throw forbidden();
   let { results } = await env.DB.prepare(`SELECT * FROM exam_sessions WHERE code IN (${codes.map(() => '?').join(',')})`).bind(...codes).all();
-  if (user.role === 'doctor') results = results.filter((s) => s.doctor_id === user.doctor_id);
+  if (sessionScope(user) === 'own') results = results.filter((s) => s.doctor_id === user.doctor_id);
+  else if (sessionScope(user) === 'none') results = [];
   const now = Date.now();
   const stmts = results.flatMap((s) => sessionAction(env, s, input.action, now));
   if (stmts.length) await env.DB.batch(stmts);
@@ -450,7 +455,7 @@ async function addTelemetry(env, code, input) {
     stmts.push(env.DB.prepare('UPDATE exam_sessions SET last_bpm = COALESCE(?, last_bpm), last_rhythm = COALESCE(?, last_rhythm), last_seen_at = ? WHERE id = ?')
       .bind(last.bpm ?? null, last.rhythm ?? null, last.recorded_at, s.id));
   await env.DB.batch(stmts);
-  return { stored: rows.length };
+  return { stored: rows.length, live: { type: 'live', telemetry: last } };
 }
 
 async function listTelemetry(env, code, url) {
@@ -484,7 +489,42 @@ async function addEcg(env, code, input) {
     if (/UNIQUE/.test(String(e.message))) return { stored: 0, duplicate: true }; // device re-sent a chunk after a blackout
     throw e;
   }
-  return { stored: bytes.length / 2 };
+  const u8 = Uint8Array.from(bytes);
+  return { stored: bytes.length / 2, live: { type: 'live', ecg: { started_at: startedAt, hz: s.sampling_hz, lead, samples: Array.from(new Int16Array(u8.buffer)) } } };
+}
+
+// Compatibility with the Android app of the older EKG system (the APK cannot be changed): same path, body and reply as
+// ekg's POST /api/sessions/:session_id/data. Open (the APK sends no key), so it only accepts a RUNNING session and caps the size.
+//   body { bpm: 72, ecg_waveform: [512, 514, ...] | "512,514,..." | "[512,514,...]" }  ->  201 { message: 'Data saved successfully', id }
+// The chunk is taken to END now: its samples are placed backwards at the session's sampling rate.
+async function addLegacyData(env, code, input) {
+  const s = await getSession(env, code);
+  if (s.status !== 'running') throw conflict('Session is not running');
+  let w = input.ecg_waveform;
+  if (typeof w === 'string') { try { w = JSON.parse(w); } catch { w = w.split(',').map(Number); } }
+  if (!Array.isArray(w) || !w.length || w.length > 20000) throw bad('ecg_waveform must hold 1-20000 samples', { ecg_waveform: 'required' });
+  const nums = w.map(Number);
+  if (nums.some((x) => !Number.isFinite(x))) throw bad('ecg_waveform must be numbers', { ecg_waveform: 'numbers only' });
+  const bpm = input.bpm === undefined || input.bpm === null || input.bpm === '' ? null : Math.round(Number(input.bpm));
+  if (bpm !== null && !(bpm >= 0 && bpm <= 400)) throw bad('bpm must be 0-400', { bpm: '0-400' });
+  const now = Date.now();
+  let startedAt = Math.round(now - (nums.length / s.sampling_hz) * 1000);
+  // Arrival times jitter, so placing every chunk by its arrival leaves little gaps/overlaps that break the trace. When the chunk
+  // follows the previous one closely (within 2 s), continue exactly where the previous one ended.
+  const prev = await env.DB.prepare('SELECT started_at, sample_count FROM ecg_chunks WHERE session_id = ? AND lead = ? ORDER BY started_at DESC LIMIT 1').bind(s.id, s.lead).first();
+  if (prev) {
+    const prevEnd = Math.round(prev.started_at + (prev.sample_count / s.sampling_hz) * 1000);
+    if (Math.abs(startedAt - prevEnd) <= 2000) startedAt = prevEnd;
+  }
+  const arr = new Int16Array(nums.map((x) => Math.max(-32768, Math.min(32767, Math.round(x)))));
+  const stmts = [env.DB.prepare('INSERT OR IGNORE INTO ecg_chunks (session_id, lead, started_at, sample_count, samples) VALUES (?,?,?,?,?)').bind(s.id, s.lead, startedAt, arr.length, new Uint8Array(arr.buffer))];
+  if (bpm !== null) {
+    stmts.push(env.DB.prepare('INSERT INTO telemetry (session_id, recorded_at, bpm) VALUES (?,?,?)').bind(s.id, now, bpm));
+    stmts.push(env.DB.prepare('UPDATE exam_sessions SET last_bpm = ?, last_seen_at = ? WHERE id = ?').bind(bpm, now, s.id));
+  } else stmts.push(env.DB.prepare('UPDATE exam_sessions SET last_seen_at = ? WHERE id = ?').bind(now, s.id));
+  const res = await env.DB.batch(stmts);
+  const live = { type: 'live', ecg: { started_at: startedAt, hz: s.sampling_hz, lead: s.lead, samples: Array.from(arr) }, ...(bpm !== null ? { telemetry: { recorded_at: now, bpm } } : {}) };
+  return { message: 'Data saved successfully', id: res[0].meta.last_row_id, live };
 }
 
 async function getEcg(env, code, url) {
@@ -590,12 +630,43 @@ async function updateAnalysis(env, id, input) {
 const ROLES = ['admin', 'doctor', 'nurse'];
 const ROLE_ALIASES = { admin: 'admin', doctor: 'doctor', dokter: 'doctor', nurse: 'nurse', perawat: 'nurse' };
 const ROLE_LABELS = { admin: 'Admin', doctor: 'Dokter', nurse: 'Perawat' };
-const PERMISSIONS = {
-  admin: ['users.manage', 'master.write', 'patients.write', 'sessions.create', 'sessions.edit', 'sessions.complete', 'sessions.archive', 'sessions.delete', 'notes.write', 'ai.run'],
-  nurse: ['patients.write', 'sessions.create', 'sessions.edit', 'sessions.complete', 'sessions.archive', 'notes.write', 'ai.run'],
-  doctor: ['sessions.edit', 'sessions.complete', 'notes.write', 'ai.run'],
-};
-const can = (user, perm) => !!user && PERMISSIONS[user.role].includes(perm);
+// What a login may do comes from its group (Konfigurasi > Grup / Izin) plus per-user allow/deny overrides.
+// Defaults are seeded by db/schema.sql: Admin = everything, Dokter = dashboard + own sessions, Perawat = dashboard + all sessions + create.
+const PERMISSION_CATALOG = [
+  { code: 'dashboard.view', label: 'Melihat Dashboard', group: 'Dashboard' },
+  { code: 'sessions.read_own', label: 'Melihat sesi yang ditugaskan kepadanya (DPJP)', group: 'Sesi Pemeriksaan' },
+  { code: 'sessions.read_all', label: 'Melihat semua sesi', group: 'Sesi Pemeriksaan' },
+  { code: 'sessions.create', label: 'Membuat sesi', group: 'Sesi Pemeriksaan' },
+  { code: 'sessions.edit', label: 'Mengubah sesi', group: 'Sesi Pemeriksaan' },
+  { code: 'sessions.complete', label: 'Menyelesaikan sesi', group: 'Sesi Pemeriksaan' },
+  { code: 'sessions.archive', label: 'Mengarsipkan / memulihkan sesi', group: 'Sesi Pemeriksaan' },
+  { code: 'sessions.delete', label: 'Menghapus sesi', group: 'Sesi Pemeriksaan' },
+  { code: 'notes.write', label: 'Menulis catatan sesi', group: 'Sesi Pemeriksaan' },
+  { code: 'ai.run', label: 'Menjalankan analisis AI', group: 'Sesi Pemeriksaan' },
+  { code: 'patients.read', label: 'Melihat data pasien', group: 'Master Data' },
+  { code: 'patients.write', label: 'Menambah / mengubah pasien', group: 'Master Data' },
+  { code: 'master.read', label: 'Melihat data dokter, perawat, dan perangkat', group: 'Master Data' },
+  { code: 'master.write', label: 'Menambah / mengubah / menghapus master data', group: 'Master Data' },
+  { code: 'users.manage', label: 'Mengelola akun login dan kata sandi', group: 'Konfigurasi' },
+  { code: 'config.manage', label: 'Mengelola grup dan izin', group: 'Konfigurasi' },
+];
+const ALL_PERMISSIONS = PERMISSION_CATALOG.map((p) => p.code);
+const can = (user, perm) => !!user && Array.isArray(user.permissions) && user.permissions.includes(perm);
+// 'all' = any session, 'own' = only sessions where the user is the DPJP, 'none'
+const sessionScope = (user) => (can(user, 'sessions.read_all') ? 'all' : can(user, 'sessions.read_own') ? 'own' : 'none');
+
+async function loadAccess(env, user) {
+  const gid = '(SELECT id FROM user_groups WHERE id = ? OR (? IS NULL AND code = ?))';
+  const [g, gp, up] = await env.DB.batch([
+    env.DB.prepare(`SELECT * FROM user_groups WHERE id = ${gid}`).bind(user.group_id ?? null, user.group_id ?? null, user.role),
+    env.DB.prepare(`SELECT permission FROM group_permissions WHERE group_id = ${gid}`).bind(user.group_id ?? null, user.group_id ?? null, user.role),
+    env.DB.prepare('SELECT permission, effect FROM user_permissions WHERE user_id = ?').bind(user.id),
+  ]);
+  const group = g.results[0] || null;
+  const set = new Set(group && group.code === 'admin' ? ALL_PERMISSIONS : gp.results.map((r) => r.permission));
+  if (!group || group.code !== 'admin') for (const o of up.results) { if (o.effect === 'allow') set.add(o.permission); else set.delete(o.permission); }
+  return { group, overrides: up.results, permissions: ALL_PERMISSIONS.filter((c) => set.has(c)) };
+}
 const forbidden = (msg = 'Your role cannot do this') => new HttpError(403, 'forbidden', msg);
 
 // A doctor/nurse login only works while its profile exists and is not inactive (a doctor on leave can still log in).
@@ -605,25 +676,26 @@ const ACTIVE_USER_SQL = `u.is_active = 1
 
 const publicUser = (u) => u && {
   id: u.id, name: u.name, email: u.email, role: u.role, role_label: ROLE_LABELS[u.role], language: u.language,
-  doctor_id: u.doctor_id, nurse_id: u.nurse_id, doctor_name: u.doctor_name, nurse_name: u.nurse_name,
+  doctor_id: u.doctor_id, nurse_id: u.nurse_id, doctor_name: u.doctor_name, nurse_name: u.nurse_name, group_id: u.group_id, group_name: u.group_name,
   is_active: !!u.is_active, last_login_at: u.last_login_at, created_at: u.created_at,
 };
 
 async function me(env, user) {
+  if (!user.permissions) { const a = await loadAccess(env, user); user = { ...user, permissions: a.permissions, group_id: a.group && a.group.id, group_name: a.group && a.group.name }; }
   const profile = user.role === 'doctor'
     ? await env.DB.prepare('SELECT d.*, sp.name AS subspecialty_name FROM doctors d LEFT JOIN subspecialties sp ON sp.code = d.subspecialty_code WHERE d.id = ?').bind(user.doctor_id).first()
     : user.role === 'nurse'
       ? await env.DB.prepare('SELECT n.*, u.name AS unit_name FROM nurses n LEFT JOIN units u ON u.id = n.unit_id WHERE n.id = ?').bind(user.nurse_id).first()
       : null;
-  return { ...publicUser(user), profile, permissions: PERMISSIONS[user.role], session_scope: user.role === 'doctor' ? 'own' : 'all' };
+  return { ...publicUser(user), profile, permissions: user.permissions, session_scope: sessionScope(user) };
 }
 
 // ─── user accounts (admin only) ───────────────────────────────────────────────
-const USER_SELECT = `SELECT u.*, d.full_name AS doctor_name, n.full_name AS nurse_name FROM users u
-  LEFT JOIN doctors d ON d.id = u.doctor_id LEFT JOIN nurses n ON n.id = u.nurse_id`;
+const USER_SELECT = `SELECT u.*, d.full_name AS doctor_name, n.full_name AS nurse_name, g.name AS group_name FROM users u
+  LEFT JOIN doctors d ON d.id = u.doctor_id LEFT JOIN nurses n ON n.id = u.nurse_id LEFT JOIN user_groups g ON g.id = COALESCE(u.group_id, (SELECT id FROM user_groups WHERE code = u.role))`;
 const USER_FIELDS = {
   name: { type: 'text', max: 100 }, email: { type: 'email' }, role: { type: 'enum', values: ROLES },
-  doctor_id: { type: 'int', min: 1 }, nurse_id: { type: 'int', min: 1 }, language: { type: 'enum', values: ['id', 'en'] }, is_active: { type: 'bool' },
+  doctor_id: { type: 'int', min: 1 }, nurse_id: { type: 'int', min: 1 }, group_id: { type: 'int', min: 1 }, language: { type: 'enum', values: ['id', 'en'] }, is_active: { type: 'bool' },
 };
 
 async function findUser(env, id) {
@@ -639,6 +711,8 @@ async function listUsers(env, url) {
   if (q) { where.push("(u.name LIKE ? ESCAPE '\\' OR u.email LIKE ? ESCAPE '\\' OR d.full_name LIKE ? ESCAPE '\\' OR n.full_name LIKE ? ESCAPE '\\')"); args.push(like(q), like(q), like(q), like(q)); }
   const roles = url.searchParams.getAll('role').flatMap((v) => v.split(',')).map((r) => ROLE_ALIASES[r]).filter(Boolean);
   if (roles.length) { where.push(`u.role IN (${roles.map(() => '?').join(',')})`); args.push(...roles); }
+  const groupId = url.searchParams.get('group_id');
+  if (groupId) { where.push('COALESCE(u.group_id, (SELECT id FROM user_groups WHERE code = u.role)) = ?'); args.push(+groupId); }
   const active = url.searchParams.get('active');
   if (active === '1' || active === '0') { where.push('u.is_active = ?'); args.push(+active); }
   const w = where.length ? ' WHERE ' + where.join(' AND ') : '';
@@ -665,6 +739,10 @@ async function checkUserLink(env, u) {
   if (u.role !== 'nurse') u.nurse_id = null;
 }
 
+async function checkGroup(env, data) {
+  if (data.group_id && !(await env.DB.prepare('SELECT 1 FROM user_groups WHERE id = ?').bind(data.group_id).first())) throw bad('Some fields are not valid', { group_id: 'not found' });
+}
+
 function passwordFrom(input) {
   if (input.password === undefined || input.password === null || input.password === '') return { password: b64url(randomBytes(12)), generated: true };
   const p = String(input.password);
@@ -676,6 +754,7 @@ async function createUser(env, input) {
   if (input.role) input = { ...input, role: ROLE_ALIASES[String(input.role).toLowerCase()] || input.role };
   const data = clean(input, USER_FIELDS, ['name', 'email', 'role'], false);
   await checkUserLink(env, data);
+  await checkGroup(env, data);
   const { password, generated } = passwordFrom(input);
   const now = Date.now();
   const row = { ...data, password_hash: await hashPassword(password), created_at: now, updated_at: now };
@@ -704,6 +783,8 @@ async function updateUser(env, id, input, actor) {
   const { password: _p, reset_password: reset, ...fields } = input;
   const data = clean(fields, USER_FIELDS, ['name', 'email', 'role'], true);
   if (u.id === actor.id && ((data.role && data.role !== 'admin') || data.is_active === 0)) throw conflict('You cannot remove your own admin access');
+  await checkGroup(env, data);
+  if (u.id === actor.id && 'group_id' in data && data.group_id !== null && !(await isAdminGroup(env, data.group_id))) throw conflict('You cannot remove your own admin access');
   const merged = { role: u.role, doctor_id: u.doctor_id, nurse_id: u.nurse_id, ...data };
   if ('role' in data || 'doctor_id' in data || 'nurse_id' in data) {
     await checkUserLink(env, merged);
@@ -729,12 +810,132 @@ async function updateUser(env, id, input, actor) {
   return { user: publicUser(await findUser(env, u.id)), ...(generated ? { temporary_password: generated } : {}) };
 }
 
+const isAdminGroup = async (env, id) => !!(await env.DB.prepare("SELECT 1 FROM user_groups WHERE id = ? AND code = 'admin'").bind(id).first());
+
 async function deleteUser(env, id, actor) {
   if (isDemo(env, actor.email)) throw demoLocked();
   const u = await findUser(env, id);
   if (u.id === actor.id) throw conflict('You cannot delete your own login');
   await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(u.id).run();
   return { deleted: true };
+}
+
+// ─── Konfigurasi: groups, permissions, per-user overrides (config.manage) ─────
+const GROUP_FIELDS = { name: { type: 'text', max: 60 }, description: { type: 'text', max: 200 } };
+const slug = (t) => String(t).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'grup';
+const cleanPerms = (list) => {
+  if (!Array.isArray(list)) throw bad('permissions must be a list');
+  const badOnes = list.filter((c) => !ALL_PERMISSIONS.includes(c));
+  if (badOnes.length) throw bad('Unknown permission: ' + badOnes.join(', '), { permissions: 'unknown' });
+  return [...new Set(list)];
+};
+
+async function listGroups(env) {
+  const [g, p, m] = await env.DB.batch([
+    env.DB.prepare('SELECT * FROM user_groups ORDER BY is_system DESC, id'),
+    env.DB.prepare('SELECT group_id, permission FROM group_permissions'),
+    env.DB.prepare("SELECT COALESCE(u.group_id, (SELECT id FROM user_groups WHERE code = u.role)) AS group_id, COUNT(*) AS n FROM users u GROUP BY 1"),
+  ]);
+  return g.results.map((x) => ({
+    id: x.id, code: x.code, name: x.name, description: x.description, is_system: !!x.is_system, locked: x.code === 'admin',
+    permissions: x.code === 'admin' ? ALL_PERMISSIONS : p.results.filter((r) => r.group_id === x.id).map((r) => r.permission),
+    members: (m.results.find((r) => r.group_id === x.id) || {}).n || 0,
+  }));
+}
+async function getGroup(env, id) {
+  const g = (await listGroups(env)).find((x) => x.id === +id);
+  if (!g) throw notFound('Group');
+  return g;
+}
+async function saveGroup(env, id, input, actor) {
+  if (isDemo(env, actor.email)) throw demoLocked();
+  const data = clean(input, GROUP_FIELDS, id ? [] : ['name'], !!id);
+  const perms = input.permissions !== undefined ? cleanPerms(input.permissions) : null;
+  let gid = id ? +id : null;
+  if (id) {
+    const g = await getGroup(env, id);
+    if (g.locked && perms) throw conflict('Grup Admin selalu memiliki semua izin');
+    const stmts = [];
+    if (Object.keys(data).length) stmts.push(env.DB.prepare(`UPDATE user_groups SET ${Object.keys(data).map((c) => `${c} = ?`).join(', ')} WHERE id = ?`).bind(...Object.values(data), gid));
+    if (perms) stmts.push(env.DB.prepare('DELETE FROM group_permissions WHERE group_id = ?').bind(gid), ...perms.map((c) => env.DB.prepare('INSERT INTO group_permissions (group_id, permission) VALUES (?,?)').bind(gid, c)));
+    if (!stmts.length) throw bad('Nothing to update');
+    await env.DB.batch(stmts);
+  } else {
+    let code = slug(data.name);
+    for (let i = 2; await env.DB.prepare('SELECT 1 FROM user_groups WHERE code = ?').bind(code).first(); i++) code = `${slug(data.name)}-${i}`;
+    gid = (await env.DB.prepare('INSERT INTO user_groups (code, name, description, is_system, created_at) VALUES (?,?,?,0,?)').bind(code, data.name, data.description ?? null, Date.now()).run()).meta.last_row_id;
+    if (perms && perms.length) await env.DB.batch(perms.map((c) => env.DB.prepare('INSERT INTO group_permissions (group_id, permission) VALUES (?,?)').bind(gid, c)));
+  }
+  return getGroup(env, gid);
+}
+async function deleteGroup(env, id, actor) {
+  if (isDemo(env, actor.email)) throw demoLocked();
+  const g = await getGroup(env, id);
+  if (g.is_system) throw conflict('Grup bawaan tidak dapat dihapus');
+  if (g.members) throw conflict('Grup masih memiliki anggota; pindahkan mereka ke grup lain dulu');
+  await env.DB.prepare('DELETE FROM user_groups WHERE id = ?').bind(g.id).run();
+  return { deleted: true };
+}
+
+async function getUserAccess(env, id) {
+  const u = await findUser(env, id);
+  const a = await loadAccess(env, u);
+  return { user: publicUser(u), group: a.group && { id: a.group.id, name: a.group.name, code: a.group.code }, overrides: a.overrides, permissions: a.permissions };
+}
+async function setUserOverrides(env, id, input, actor) {
+  if (isDemo(env, actor.email)) throw demoLocked();
+  const u = await findUser(env, id);
+  const o = input.overrides;
+  if (!o || typeof o !== 'object' || Array.isArray(o)) throw bad('overrides must be an object like {"sessions.create": "allow", "sessions.delete": "deny"}');
+  const rows = Object.entries(o).filter(([, v]) => v === 'allow' || v === 'deny');
+  cleanPerms(rows.map(([c]) => c));
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM user_permissions WHERE user_id = ?').bind(u.id),
+    ...rows.map(([c, v]) => env.DB.prepare('INSERT INTO user_permissions (user_id, permission, effect) VALUES (?,?,?)').bind(u.id, c, v)),
+  ]);
+  return getUserAccess(env, u.id);
+}
+
+// ─── passwords on the Edit Dokter / Perawat / Pasien pages (users.manage) ──────
+// Doctors and nurses sign in to the web app through a `users` row (created here when it does not exist yet).
+// Patients have no web login: the password is for the patient mobile app (stored in patient_credentials).
+const PASSWORD_TARGETS = { doctors: 'doctor', nurses: 'nurse', patients: 'patient' };
+async function loginInfo(env, path, key) {
+  const m = MASTER[path]; const row = await findMaster(env, m, key); const kind = PASSWORD_TARGETS[path];
+  if (kind === 'patient') {
+    const c = await env.DB.prepare('SELECT updated_at FROM patient_credentials WHERE patient_id = ?').bind(row.id).first();
+    return { kind, has_login: !!c, password_updated_at: c ? c.updated_at : null, email: null };
+  }
+  const u = await env.DB.prepare(`SELECT id, email, last_login_at, updated_at FROM users WHERE ${kind}_id = ?`).bind(row.id).first();
+  return { kind, has_login: !!u, email: u ? u.email : row.email || null, profile_email: row.email || null, last_login_at: u ? u.last_login_at : null, password_updated_at: u ? u.updated_at : null };
+}
+async function setProfilePassword(env, path, key, input, actor) {
+  if (isDemo(env, actor.email)) throw demoLocked();
+  const m = MASTER[path]; const row = await findMaster(env, m, key); const kind = PASSWORD_TARGETS[path];
+  const { password, generated } = passwordFrom(input);
+  const hash = await hashPassword(password); const now = Date.now();
+  let created = false;
+  if (kind === 'patient') {
+    await env.DB.prepare('INSERT INTO patient_credentials (patient_id, password_hash, updated_at) VALUES (?,?,?) ON CONFLICT(patient_id) DO UPDATE SET password_hash = excluded.password_hash, updated_at = excluded.updated_at').bind(row.id, hash, now).run();
+  } else {
+    const u = await env.DB.prepare(`SELECT id FROM users WHERE ${kind}_id = ?`).bind(row.id).first();
+    if (u) {
+      await env.DB.batch([
+        env.DB.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').bind(hash, now, u.id),
+        env.DB.prepare('DELETE FROM auth_sessions WHERE user_id = ?').bind(u.id), // logged out everywhere
+      ]);
+    } else {
+      if (!row.email) throw bad('Isi email dulu: akun login dibuat dari email profil', { email: 'required' });
+      try {
+        await env.DB.prepare(`INSERT INTO users (name, email, password_hash, role, ${kind}_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?)`).bind(row.full_name, row.email, hash, kind, row.id, now, now).run();
+      } catch (e) {
+        if (/users\.email|UNIQUE/i.test(String(e.message))) throw conflict('Email ini sudah dipakai akun lain');
+        throw dbError(e) || e;
+      }
+      created = true;
+    }
+  }
+  return { ok: true, created, ...(generated ? { temporary_password: password } : {}) };
 }
 
 async function login(env, input) {
@@ -764,13 +965,89 @@ async function authenticate(env, req) {
   const u = await env.DB.prepare(
     `SELECT u.* FROM auth_sessions a JOIN users u ON u.id = a.user_id WHERE a.token_hash = ? AND a.expires_at > ? AND ${ACTIVE_USER_SQL}`
   ).bind(hash, Date.now()).first();
-  return u ? { user: u, tokenHash: hash } : {};
+  if (!u) return {};
+  const a = await loadAccess(env, u);
+  return { user: { ...u, permissions: a.permissions, group_id: a.group ? a.group.id : u.group_id, group_name: a.group && a.group.name }, tokenHash: hash };
+}
+
+// ─── live stream (WebSocket) ───────────────────────────────────────────────────
+// One SessionHub (Durable Object) per session. Devices / the Simulator open it with role=push and send {bpm, ecg_waveform} frames
+// (same body as POST /sessions/:code/data); viewers open it with role=view and receive {type:'live', ecg?, telemetry?} messages for every chunk
+// saved, whether it came in through the WebSocket or through REST. REST keeps working as before.
+async function hubBroadcast(env, code, msg) {
+  if (!env.HUB || !msg) return;
+  try { await env.HUB.get(env.HUB.idFromName(code)).fetch('https://hub/broadcast', { method: 'POST', body: JSON.stringify(msg) }); } catch (e) { console.error('hub', e && e.message); }
+}
+async function withLive(env, code, out) {
+  const { live, ...reply } = out;
+  await hubBroadcast(env, code, live);
+  return reply;
+}
+
+async function streamHandler({ env, req, url, p }) {
+  if (req.headers.get('Upgrade') !== 'websocket') throw new HttpError(426, 'upgrade_required', 'Open this address as a WebSocket');
+  if (!env.HUB) throw new HttpError(503, 'unavailable', 'The live stream is not enabled');
+  // a browser cannot set headers on a WebSocket: the login token (or the device key) comes in the query string
+  const h = new Headers();
+  const key = url.searchParams.get('key'); const token = url.searchParams.get('token');
+  if (key) h.set('X-Ingest-Key', key); else if (token) h.set('Authorization', `Bearer ${token}`);
+  const auth = await authenticate(env, new Request(url, { headers: h }));
+  if (!auth.user && !auth.device) throw new HttpError(401, 'unauthorized', 'Log in first');
+  const s = await getSession(env, p.code);
+  let role = 'view';
+  if (url.searchParams.get('role') === 'push') {
+    if (!(auth.device || can(auth.user, 'config.manage'))) throw forbidden();
+    role = 'push';
+  } else {
+    if (!auth.user) throw forbidden('The device key can only push');
+    const scope = sessionScope(auth.user);
+    if (scope === 'none' || (scope === 'own' && s.doctor_id !== auth.user.doctor_id)) throw notFound('Session');
+  }
+  const u = new URL(req.url); u.search = ''; u.searchParams.set('role', role); u.searchParams.set('code', s.code);
+  return env.HUB.get(env.HUB.idFromName(s.code)).fetch(new Request(u, req));
+}
+
+export class SessionHub {
+  constructor(state, env) {
+    this.state = state; this.env = env;
+    try { state.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong')); } catch { /* older runtime */ }
+  }
+  async fetch(req) {
+    const url = new URL(req.url);
+    if (url.pathname === '/broadcast') { this.broadcast(await req.text()); return new Response('ok'); }
+    if (req.headers.get('Upgrade') !== 'websocket') return new Response('Expected a WebSocket', { status: 426 });
+    const role = url.searchParams.get('role') === 'push' ? 'push' : 'view';
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    this.state.acceptWebSocket(server, [role, `code:${url.searchParams.get('code')}`]); // hibernation API: the object can sleep between messages
+    return new Response(null, { status: 101, webSocket: client });
+  }
+  broadcast(text) {
+    for (const ws of this.state.getWebSockets('view')) { try { ws.send(text); } catch { /* closed */ } }
+  }
+  async webSocketMessage(ws, message) {
+    const tags = this.state.getTags(ws);
+    if (!tags.includes('push')) return; // viewers only listen
+    const code = (tags.find((t) => t.startsWith('code:')) || '').slice(5);
+    let frame;
+    try { frame = JSON.parse(typeof message === 'string' ? message : new TextDecoder().decode(message)); } catch { ws.send(JSON.stringify({ type: 'error', status: 400, message: 'Send JSON frames' })); return; }
+    try {
+      const { live, ...reply } = await addLegacyData(this.env, code, frame);
+      ws.send(JSON.stringify({ type: 'ack', seq: frame.seq, ...reply }));
+      this.broadcast(JSON.stringify(live));
+    } catch (e) {
+      const err = e instanceof HttpError ? e : dbError(e);
+      ws.send(JSON.stringify({ type: 'error', seq: frame && frame.seq, status: err ? err.status : 500, message: err ? err.message : 'Something went wrong' }));
+    }
+  }
+  webSocketClose(ws, code) { try { ws.close(code && code !== 1005 ? code : 1000, 'bye'); } catch { /* already closed */ } }
+  webSocketError() { /* the runtime closes it */ }
 }
 
 // ─── router ───────────────────────────────────────────────────────────────────
 // [method, pattern, handler, access]
-//   access: 'public' | a comma list of roles ('all' = admin,doctor,nurse) | prefixed 'device+' when the X-Ingest-Key may call it too.
-// Doctors only reach sessions where they are the DPJP (checked in route() for every :code).
+//   access: 'public' | 'all' (any logged-in user) | a comma list of permissions, any one is enough | prefixed 'device+' when the X-Ingest-Key may call it too.
+// Users with only sessions.read_own (doctors by default) reach sessions where they are the DPJP (checked in route() for every :code).
 const ROUTES = [
   ['GET', '/', () => ({ name: 'DETAKITA API', docs: 'ecg/README.md' }), 'public'],
   ['GET', '/health', async ({ env }) => ({ ok: true, db: !!(await env.DB.prepare('SELECT 1 AS x').first()) }), 'public'],
@@ -796,11 +1073,21 @@ const ROUTES = [
   }, 'all'],
 
   // user accounts
-  ['GET', '/users', ({ env, url }) => listUsers(env, url), 'admin'],
-  ['POST', '/users', async ({ env, req }) => [201, await createUser(env, await body(req))], 'admin'],
-  ['GET', '/users/:id', async ({ env, p }) => publicUser(await findUser(env, p.id)), 'admin'],
-  ['PATCH', '/users/:id', async ({ env, req, p, auth }) => updateUser(env, p.id, await body(req), auth.user), 'admin'],
-  ['DELETE', '/users/:id', ({ env, p, auth }) => deleteUser(env, p.id, auth.user), 'admin'],
+  ['GET', '/users', ({ env, url }) => listUsers(env, url), 'users.manage,config.manage'],
+  ['POST', '/users', async ({ env, req }) => [201, await createUser(env, await body(req))], 'users.manage'],
+  ['GET', '/users/:id', async ({ env, p }) => publicUser(await findUser(env, p.id)), 'users.manage,config.manage'],
+  ['PATCH', '/users/:id', async ({ env, req, p, auth }) => updateUser(env, p.id, await body(req), auth.user), 'users.manage,config.manage'],
+  ['DELETE', '/users/:id', ({ env, p, auth }) => deleteUser(env, p.id, auth.user), 'users.manage'],
+
+  // Konfigurasi: permission catalog, groups, per-user overrides
+  ['GET', '/config/permissions', () => ({ data: PERMISSION_CATALOG }), 'config.manage'],
+  ['GET', '/groups', async ({ env }) => ({ data: await listGroups(env) }), 'config.manage'],
+  ['POST', '/groups', async ({ env, req, auth }) => [201, await saveGroup(env, null, await body(req), auth.user)], 'config.manage'],
+  ['GET', '/groups/:id', ({ env, p }) => getGroup(env, p.id), 'config.manage'],
+  ['PATCH', '/groups/:id', async ({ env, req, p, auth }) => saveGroup(env, p.id, await body(req), auth.user), 'config.manage'],
+  ['DELETE', '/groups/:id', ({ env, p, auth }) => deleteGroup(env, p.id, auth.user), 'config.manage'],
+  ['GET', '/users/:id/access', ({ env, p }) => getUserAccess(env, p.id), 'config.manage'],
+  ['PUT', '/users/:id/access', async ({ env, req, p, auth }) => setUserOverrides(env, p.id, await body(req), auth.user), 'config.manage'],
 
   ['GET', '/lookups', async ({ env }) => {
     const [sub, units] = await env.DB.batch([
@@ -809,71 +1096,79 @@ const ROUTES = [
     return {
       subspecialties: sub.results, units: units.results,
       roles: ROLES.map((code) => ({ code, label: ROLE_LABELS[code] })),
+      groups: (await env.DB.prepare('SELECT id, code, name FROM user_groups ORDER BY is_system DESC, id').all()).results,
       shifts: [{ code: 'morning', label: 'Pagi', from: '07:00', to: '14:30' }, { code: 'afternoon', label: 'Siang', from: '14:00', to: '21:00' }, { code: 'night', label: 'Malam', from: '20:30', to: '07:30' }],
       target_durations: [24, 48, 72], sync_intervals: [5, 1],
     };
   }, 'all'],
   ['GET', '/stats', async ({ env, auth }) => {
-    const own = auth.user.role === 'doctor';
+    const own = sessionScope(auth.user) !== 'all';
     const [c, p, d, n] = await env.DB.batch([
       env.DB.prepare(`SELECT SUM(status = 'running' AND archived_at IS NULL) AS running, SUM(status = 'completed' AND archived_at IS NULL) AS completed,
-                             SUM(archived_at IS NOT NULL) AS archived FROM exam_sessions ${own ? 'WHERE doctor_id = ?' : ''}`).bind(...(own ? [auth.user.doctor_id] : [])),
+                             SUM(archived_at IS NOT NULL) AS archived FROM exam_sessions ${own ? 'WHERE doctor_id = ?' : ''}`).bind(...(own ? [auth.user.doctor_id ?? -1] : [])),
       env.DB.prepare('SELECT COUNT(*) AS n FROM patients'), env.DB.prepare('SELECT COUNT(*) AS n FROM doctors'), env.DB.prepare('SELECT COUNT(*) AS n FROM nurses'),
     ]);
     const s = c.results[0];
     return { sessions: { running: s.running || 0, completed: s.completed || 0, archived: s.archived || 0 }, patients: p.results[0].n, doctors: d.results[0].n, nurses: n.results[0].n };
-  }, 'all'],
+  }, 'dashboard.view,sessions.read_own,sessions.read_all'],
 
   // sessions
-  ['GET', '/sessions', ({ env, url, auth }) => listSessions(env, url, auth), 'all'],
-  ['POST', '/sessions', async ({ env, req, auth }) => [201, await createSession(env, auth.user, await body(req))], 'admin,nurse'],
-  ['POST', '/sessions/bulk', async ({ env, req, auth }) => bulkSessions(env, await body(req), auth.user), 'all'],
-  ['GET', '/sessions/:code', ({ env, p }) => sessionDetail(env, p.code), 'all'],
-  ['PATCH', '/sessions/:code', async ({ env, req, p }) => updateSession(env, p.code, await body(req)), 'all'],
-  ['DELETE', '/sessions/:code', async ({ env, p }) => { const s = await getSession(env, p.code); await env.DB.batch(sessionAction(env, s, 'delete', Date.now())); return { deleted: true }; }, 'admin'],
-  ...[['complete', 'all'], ['archive', 'admin,nurse'], ['unarchive', 'admin,nurse']].map(([a, roles]) => ['POST', `/sessions/:code/${a}`, async ({ env, p }) => {
+  ['GET', '/sessions', ({ env, url, auth }) => listSessions(env, url, auth), 'sessions.read_own,sessions.read_all'],
+  ['POST', '/sessions', async ({ env, req, auth }) => [201, await createSession(env, auth.user, await body(req))], 'sessions.create'],
+  ['POST', '/sessions/bulk', async ({ env, req, auth }) => bulkSessions(env, await body(req), auth.user), 'sessions.complete,sessions.archive,sessions.delete'],
+  ['GET', '/sessions/:code', ({ env, p }) => sessionDetail(env, p.code), 'sessions.read_own,sessions.read_all'],
+  ['PATCH', '/sessions/:code', async ({ env, req, p }) => updateSession(env, p.code, await body(req)), 'sessions.edit'],
+  ['DELETE', '/sessions/:code', async ({ env, p }) => { const s = await getSession(env, p.code); await env.DB.batch(sessionAction(env, s, 'delete', Date.now())); return { deleted: true }; }, 'sessions.delete'],
+  ...[['complete', 'sessions.complete'], ['archive', 'sessions.archive'], ['unarchive', 'sessions.archive']].map(([a, perm]) => ['POST', `/sessions/:code/${a}`, async ({ env, p }) => {
     const s = await getSession(env, p.code);
     if (a === 'complete' && s.status !== 'running') throw conflict('Session is not running');
     const stmts = sessionAction(env, s, a, Date.now()); if (stmts.length) await env.DB.batch(stmts);
     return sessionDetail(env, s.code);
-  }, roles]),
-  ['GET', '/sessions/:code/telemetry', ({ env, p, url }) => listTelemetry(env, p.code, url), 'all'],
-  ['POST', '/sessions/:code/telemetry', async ({ env, req, p }) => [201, await addTelemetry(env, p.code, await body(req))], 'device+admin'],
-  ['GET', '/sessions/:code/ecg', ({ env, p, url }) => getEcg(env, p.code, url), 'all'],
-  ['POST', '/sessions/:code/ecg', async ({ env, req, p }) => [201, await addEcg(env, p.code, await body(req))], 'device+admin'],
-  ['GET', '/sessions/:code/notes', ({ env, p, url }) => listNotes(env, p.code, url), 'all'],
-  ['POST', '/sessions/:code/notes', async ({ env, req, p, auth }) => [201, await addNote(env, p.code, await body(req), auth)], 'device+all'],
+  }, perm]),
+  ['GET', '/sessions/:code/telemetry', ({ env, p, url }) => listTelemetry(env, p.code, url), 'sessions.read_own,sessions.read_all'],
+  ['POST', '/sessions/:code/telemetry', async ({ env, req, p }) => [201, await withLive(env, p.code, await addTelemetry(env, p.code, await body(req)))], 'device+master.write'],
+  ['POST', '/sessions/:code/data', async ({ env, req, p }) => [201, await withLive(env, p.code, await addLegacyData(env, p.code, await body(req)))], 'public'], // the old APK: see addLegacyData
+  ['GET', '/sessions/:code/ecg', ({ env, p, url }) => getEcg(env, p.code, url), 'sessions.read_own,sessions.read_all'],
+  ['POST', '/sessions/:code/ecg', async ({ env, req, p }) => [201, await withLive(env, p.code, await addEcg(env, p.code, await body(req)))], 'device+master.write'],
+  ['GET', '/sessions/:code/stream', (ctx) => streamHandler(ctx), 'public'], // WebSocket upgrade; the token / key is checked inside
+  ['GET', '/sessions/:code/notes', ({ env, p, url }) => listNotes(env, p.code, url), 'sessions.read_own,sessions.read_all'],
+  ['POST', '/sessions/:code/notes', async ({ env, req, p, auth }) => [201, await addNote(env, p.code, await body(req), auth)], 'device+notes.write'],
   ['GET', '/sessions/:code/analyses', async ({ env, p }) => {
     const s = await getSession(env, p.code);
     const { results } = await env.DB.prepare('SELECT * FROM ai_analyses WHERE session_id = ? ORDER BY created_at DESC LIMIT 50').bind(s.id).all();
     return { data: results.map(parseAnalysis) };
-  }, 'all'],
-  ['POST', '/sessions/:code/analyses', async ({ env, req, p, auth }) => [201, await startAnalysis(env, p.code, (await req.json().catch(() => ({}))) || {}, auth.user)], 'all'],
-  ['PATCH', '/analyses/:id', async ({ env, req, p }) => updateAnalysis(env, p.id, await body(req)), 'device+admin'],
+  }, 'sessions.read_own,sessions.read_all'],
+  ['POST', '/sessions/:code/analyses', async ({ env, req, p, auth }) => [201, await startAnalysis(env, p.code, (await req.json().catch(() => ({}))) || {}, auth.user)], 'ai.run'],
+  ['PATCH', '/analyses/:id', async ({ env, req, p }) => updateAnalysis(env, p.id, await body(req)), 'device+master.write'],
 
-  // master data: /doctors, /nurses, /patients, /devices — everyone reads; admins write; nurses may also add/edit patients (intake)
+  // master data: /doctors, /nurses, /patients, /devices — read/write follow the permissions (patients.* for patients, master.* for the rest)
   ...Object.entries(MASTER).flatMap(([path, m]) => {
-    const write = path === 'patients' ? 'admin,nurse' : 'admin';
+    const [read, write] = path === 'patients' ? ['patients.read', 'patients.write'] : ['master.read', 'master.write'];
     return [
-      ['GET', `/${path}`, ({ env, url }) => listMaster(env, m, url), 'all'],
+      ['GET', `/${path}`, ({ env, url }) => listMaster(env, m, url), read],
       ['POST', `/${path}`, async ({ env, req }) => [201, await createMaster(env, m, await body(req))], write],
-      ['GET', `/${path}/:key`, ({ env, p }) => findMaster(env, m, p.key), 'all'],
+      ['GET', `/${path}/:key`, ({ env, p }) => findMaster(env, m, p.key), read],
       ['PATCH', `/${path}/:key`, async ({ env, req, p }) => updateMaster(env, m, p.key, await body(req)), write],
-      ['DELETE', `/${path}/:key`, ({ env, p }) => deleteMaster(env, m, p.key), 'admin'],
+      ['DELETE', `/${path}/:key`, ({ env, p }) => deleteMaster(env, m, p.key), 'master.write'],
     ];
   }),
+  // Kata sandi card on the Edit Dokter / Perawat / Pasien pages
+  ...Object.keys(PASSWORD_TARGETS).flatMap((path) => [
+    ['GET', `/${path}/:key/login`, ({ env, p }) => loginInfo(env, path, p.key), 'users.manage'],
+    ['POST', `/${path}/:key/password`, async ({ env, req, p, auth }) => setProfilePassword(env, path, p.key, await body(req), auth.user), 'users.manage'],
+  ]),
   ['GET', '/patients/:key/sessions', async ({ env, p, url, auth }) => {
     const pt = await findMaster(env, MASTER.patients, p.key);
     url.searchParams.set('patient_id', pt.id); if (!url.searchParams.get('view')) url.searchParams.set('view', 'all');
     return listSessions(env, url, auth);
-  }, 'all'],
+  }, 'patients.read'],
 ].map(([method, pattern, handler, access]) => {
   const keys = [];
   const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)'; }) + '/?$');
   const device = access.startsWith('device+');
   const list = access.replace(/^device\+/, '');
-  const roles = list === 'public' ? null : list === 'all' ? ROLES : list.split(',');
-  return { method, re, keys, handler, public: list === 'public', device, roles };
+  const perms = list === 'public' || list === 'all' ? null : list.split(',');
+  return { method, re, keys, handler, public: list === 'public', device, perms };
 });
 
 async function route(req, env) {
@@ -890,14 +1185,15 @@ async function route(req, env) {
     if (!r.public) {
       if (auth.device && !r.device) throw forbidden('The ingest key only works on ingest routes');
       if (!auth.user && !auth.device) throw new HttpError(401, 'unauthorized', 'Log in first (Authorization: Bearer <token>)');
-      if (auth.user && !r.roles.includes(auth.user.role)) throw forbidden();
-      // a doctor only sees sessions where they are the DPJP
-      if (auth.user && auth.user.role === 'doctor' && p.code) {
+      if (auth.user && r.perms && !r.perms.some((c) => can(auth.user, c))) throw forbidden();
+      // a user who may only see their own sessions reaches only those where they are the DPJP
+      if (auth.user && p.code && sessionScope(auth.user) !== 'all') {
         const s = await env.DB.prepare('SELECT doctor_id FROM exam_sessions WHERE code = ?').bind(p.code.replace(/^#/, '')).first();
-        if (s && s.doctor_id !== auth.user.doctor_id) throw notFound('Session');
+        if (sessionScope(auth.user) === 'none' || (s && s.doctor_id !== auth.user.doctor_id)) throw notFound('Session');
       }
     }
     const out = await r.handler({ env, req, url, p, auth });
+    if (out instanceof Response) return out; // the WebSocket upgrade
     return Array.isArray(out) ? json(out[1], out[0]) : json(out);
   }
   throw pathMatched ? new HttpError(405, 'method_not_allowed', `${req.method} is not allowed here`) : notFound('Route');
@@ -915,7 +1211,7 @@ export default {
       if (!err) console.error(e && e.stack || e);
       res = json({ error: err ? { code: err.code, message: err.message, ...(err.fields ? { fields: err.fields } : {}) } : { code: 'server_error', message: 'Something went wrong' } }, err ? err.status : 500);
     }
-    for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+    if (res.status !== 101) for (const [k, v] of Object.entries(headers)) res.headers.set(k, v); // a WebSocket upgrade has immutable headers
     return res;
   },
 };

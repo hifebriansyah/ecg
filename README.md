@@ -9,7 +9,7 @@ Admin web for the DETAKITA Holter ECG telemedicine service: master data (doctors
 - `worker/api.js` — the REST API (Cloudflare Worker `ecg-api`), live at the address in `worker/api-url.txt`, with logins for three roles: Admin, Dokter, Perawat.
 - `web/` — the web app (React 19, React Router 7, Tailwind 4, Vite, Lucide icons) with every screen from `design/`, wired to the live API, plus a Storybook.
 - `tools/seed_demo.py` — fills the database with the doctors, nurses, patients and sessions shown in the designs (synthetic ECG).
-- `tools/setup_db.py` — creates the D1 database and applies the schema.
+- `tools/setup_db.py` — creates the D1 database, adds columns added later (`users.group_id`) and applies the schema (run it before deploying a worker that needs new tables).
 - `tools/deploy_worker.py` — uploads the API Worker. `tools/create_admin.py` — creates/resets an admin login. `tools/create_demo_logins.py` — the three public demo logins the login screen fills in.
 
 Repository: `github.com/hifebriansyah/ecg` (public). Live site: **https://ecg.situs.id** (GitHub Pages), Storybook at https://ecg.situs.id/storybook/.
@@ -30,9 +30,14 @@ Repository: `github.com/hifebriansyah/ecg` (public). Live site: **https://ecg.si
 | `/master/dokter`, `/master/dokter/baru`, `/master/dokter/:code` | Daftar / Edit Dokter | filters: status, subspecialty, quota; bulk activate / deactivate |
 | `/master/perawat`, `/master/perawat/:code` | Daftar / Edit Perawat | "Tambah Tenaga Perawat" dialog (NIK added: the database needs it) |
 | `/master/pasien`, `/master/pasien/baru`, `/master/pasien/:mrn` | Daftar / Edit Pasien | "Pasien Tidak Ditemukan" empty state, the patient's session history |
+| `/dokumen/panduan-pengujian`, `/dokumen/manajemen-risiko` | Dokumen (menu) | Testing & validation guide and the ISO 14971 risk management file, ported from the old ekg HTML pages (`ekg/webserver/public`). Any logged-in user; Indonesian and English; "Cetak Dokumen" prints / saves a PDF. Content in `web/src/pages/docs/`, English in `web/src/i18n/en.docs.*.js` |
 | `/pengaturan` | Setting (user menu) | name, language, password. User menu also has Bahasa and Logout |
 
-What a role cannot do is hidden (buttons, menu items, routes) and also refused by the API. Lists refresh by themselves: running sessions every 15 s, the ECG strip at the session's sync interval, the sidebar counts every 30 s. The "Bahasa" choice is saved to the account, but the screens are only in Indonesian so far.
+Every clickable (buttons, links, selects, checkboxes, the drawer backdrop, clickable rows) shows a pointer cursor; disabled ones show "not-allowed" (one global rule in `web/src/index.css`).
+
+What a role cannot do is hidden (buttons, menu items, routes) and also refused by the API. Lists refresh by themselves: running sessions every 15 s, the ECG strip at the session's sync interval, the sidebar counts every 30 s. **Live data: WebSocket or REST.** On a running session the live strip listens on the WebSocket (green dot on the "WebSocket" switch) and shows each chunk and BPM as it arrives; if the socket is down it falls back to REST polling by itself, and the "REST" switch (remembered in the browser) forces polling. Konfigurasi › Simulator can push over either ("Pengiriman"). Lists and the sidebar counts still poll. The old APK keeps using REST. Durable Objects need the migration in `worker/api.jsonc` (applied by `tools/deploy_worker.py`; SQLite-backed, so they work on the free plan).
+
+**Language.** Every screen is in Indonesian or English. The "Bahasa" choice (user menu, or Setting) is saved to the account and the app switches at once; the login screen has an ID | EN switch (kept in this browser). Texts go through `t('Indonesian text')` from `web/src/lib/i18n.jsx`: the key is the Indonesian string and the English is in `web/src/i18n/en.*.js` (a missing entry shows the Indonesian text). Constants that hold labels keep the Indonesian key and are passed through `t()` when rendered. Data from the API (names, specialties, rhythm text, AI findings) is not translated.
 
 ### Demo data
 
@@ -83,23 +88,33 @@ npm run dev      # http://localhost:5200/login (same as: cd web && npm run dev)
 
 The API address comes from `VITE_API_URL` (see `web/.env.example`; the live API is the default). The login screen asks for the role (Admin / Dokter / Perawat), email and password. The account must have the chosen role, otherwise login is refused with a message naming the account's real role. "Ingat saya" keeps the login for 7 days; without it, the login ends when the tab closes.
 
-## Roles
+## Roles, groups and permissions
 
-Each login has one role. A Dokter or Perawat login is linked to its profile in master data (`doctor_id` / `nurse_id`, one login per profile). It stops working while that profile is inactive; a doctor on leave (Cuti) can still log in.
+Each login has a role (Admin / Dokter / Perawat) that says which profile it is linked to (`doctor_id` / `nurse_id`, one login per profile; it stops working while that profile is inactive, a doctor on leave can still log in). **What a login may do comes from its group** (menu **Konfigurasi**), plus optional per-user exceptions. A login joins the group named like its role until an admin moves it.
 
-| What | Admin | Perawat | Dokter |
+Default groups (editable under Konfigurasi › Izin, except Admin which always has everything):
+
+| Permission | Admin | Perawat | Dokter |
 |---|---|---|---|
-| Read master data (doctors, nurses, patients, devices) | ✓ | ✓ | ✓ |
-| Add / edit doctors, nurses, devices; delete any master data | ✓ | | |
-| Add / edit patients (intake) | ✓ | ✓ | |
-| See sessions | all | all | only where they are the DPJP |
-| Start a session (Tambah Sesi) | ✓ | ✓ (fills in themselves as the nurse) | |
-| Edit a session, mark it finished, write notes, run AI analysis | ✓ | ✓ | ✓ (own sessions) |
-| Archive / unarchive | ✓ | ✓ | |
-| Delete a session permanently | ✓ | | |
-| Manage logins (`/users`) | ✓ | | |
+| `dashboard.view` Dashboard | ✓ | ✓ | ✓ |
+| `sessions.read_all` / `sessions.read_own` | all | all | own only (sessions where they are the DPJP) |
+| `sessions.create` Tambah Sesi | ✓ | ✓ (fills in themselves as the nurse) | |
+| `sessions.edit`, `sessions.complete`, `notes.write`, `ai.run` | ✓ | ✓ | ✓ (own sessions) |
+| `sessions.archive` | ✓ | ✓ | |
+| `sessions.delete` | ✓ | | |
+| `patients.read` / `patients.write` | ✓ | ✓ | |
+| `master.read` (doctors, nurses, devices) | ✓ | ✓ | |
+| `master.write` (add / edit / delete master data) | ✓ | | |
+| `users.manage` (logins and passwords) | ✓ | | |
+| `config.manage` (groups and permissions) | ✓ | | |
 
-Notes are always written as the logged-in person: a Dokter's note shows as DOKTER DPJP, a Perawat's as PERAWAT. `GET /me` (also returned by login) gives the role, the linked profile, `permissions` and `session_scope` (`all` / `own`), so the app can hide what a role cannot do.
+- **Konfigurasi › Izin** — a matrix of permissions × groups (saved on every tick) and "Pengecualian per Pengguna": for one user, each permission can follow the group, be always allowed or always denied.
+- **Konfigurasi › Grup** — create, rename and delete groups (the three built-in ones cannot be deleted; a group with members cannot either) and move users between groups. A new group starts with no permissions.
+- Menus, buttons and routes the user may not use are hidden; the API refuses them with 403 as well. A user with only `sessions.read_own` reaches just their own sessions (others answer 404).
+- **Kata Sandi card** on the Edit Dokter / Perawat / Pasien pages (needs `users.manage`): sets the password. For a doctor or nurse it changes the web login's password and logs them out everywhere; if the profile has no login yet, it creates one from the profile's email. Patients have no web login: that password is stored for the patient mobile app (`patient_credentials`); the app's own sign-in endpoint is not built yet.
+- Demo accounts cannot change groups, permissions or passwords (same lock as `/users`).
+
+Notes are always written as the logged-in person: a Dokter's note shows as DOKTER DPJP, a Perawat's as PERAWAT. `GET /me` (also returned by login) gives the role, the group, the linked profile, `permissions` and `session_scope` (`all` / `own` / `none`).
 
 ## Database
 
@@ -137,14 +152,14 @@ Deleting a session ("dihapus secara permanen") removes its telemetry, waveform, 
 
 ## REST API
 
-Live at `https://ecg-api.hifebriansyah.workers.dev` (also accepts an `/api` prefix). JSON in and out; times are ms since 1970.
+Live at `https://api-ecg.situs.id` (custom domain on the Worker, made by `python3 ecg/tools/set_domain.py`; the old `https://ecg-api.hifebriansyah.workers.dev` keeps working; both accept an `/api` prefix). JSON in and out; times are ms since 1970.
 
 ```bash
 python3 ecg/tools/deploy_worker.py   # after any change to worker/api.js
 python3 ecg/tools/create_admin.py    # admin login; email/password go to .env (ECG_ADMIN_EMAIL / ECG_ADMIN_PASSWORD)
 ```
 
-**Auth.** `POST /auth/login {email, password}` returns `{token}`; send `Authorization: Bearer <token>` (valid 7 days). The Holter device / mobile app instead sends `X-Ingest-Key: <ECG_INGEST_TOKEN from .env>`, which only works on the routes marked *ingest*. What each role may do is in the Roles table above; a route the role may not use answers 403.
+**Auth.** `POST /auth/login {email, password}` returns `{token}`; send `Authorization: Bearer <token>` (valid 7 days). The Holter device / mobile app instead sends `X-Ingest-Key: <ECG_INGEST_TOKEN from .env>`, which only works on the routes marked *ingest*. What a login may do is in the permissions table above; a route its permissions do not allow answers 403.
 
 **Errors.** `{ "error": { "code", "message", "fields"? } }` — 400 invalid (with per-field messages), 401, 403, 404, 409 (duplicate NIK/STR/serial, record in use, patient already has a running session, device busy).
 
@@ -153,7 +168,10 @@ python3 ecg/tools/create_admin.py    # admin login; email/password go to .env (E
 | Method & path | Screen / use |
 |---|---|
 | `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PATCH /me` | sidebar user card; `PATCH /me` changes `name`, `language` (Bahasa) or password (`current_password`, `new_password`) |
-| `GET /users?q&role=dokter,perawat,admin&active=1` · `POST /users` · `GET/PATCH/DELETE /users/:id` | Admin only. `POST` takes `name`, `email`, `role` (`admin` / `dokter` / `perawat`, or `doctor` / `nurse`), `doctor_id` or `nurse_id`, and an optional `password`; without one, a `temporary_password` is returned once. `PATCH` can change the role, switch the login off (`is_active: false`) or `reset_password: true`; these log the user out everywhere |
+| `GET /config/permissions` · `GET/POST /groups` · `GET/PATCH/DELETE /groups/:id` | `config.manage`. `PATCH` takes `name`, `description` and/or `permissions: [codes]` (not on the Admin group) |
+| `GET/PUT /users/:id/access` | `config.manage`. `PUT {overrides: {"sessions.create": "allow", "sessions.delete": "deny"}}` replaces the user's exceptions; `group_id` is changed with `PATCH /users/:id` |
+| `GET /doctors|nurses|patients/:key/login` · `POST /doctors|nurses|patients/:key/password` | `users.manage`. Password card; `POST {password}` (10+ chars, or empty for a generated `temporary_password`) |
+| `GET /users?q&role=dokter,perawat,admin&active=1` · `POST /users` · `GET/PATCH/DELETE /users/:id` | `users.manage` (listing also `config.manage`). `POST` takes `name`, `email`, `role` (`admin` / `dokter` / `perawat`, or `doctor` / `nurse`), `doctor_id` or `nurse_id`, and an optional `password`; without one, a `temporary_password` is returned once. `PATCH` can change the role, switch the login off (`is_active: false`) or `reset_password: true`; these log the user out everywhere |
 | `GET /lookups` | subspecialties, units, shifts, durations, sync intervals for the selects |
 | `GET /stats` | sidebar badges (running / completed / archived) and master-data totals |
 | `GET /doctors` `?q&status&subspecialty&quota=available,near_full` | Daftar Dokter (includes `active_patients`) |
@@ -172,6 +190,8 @@ python3 ecg/tools/create_admin.py    # admin login; email/password go to .env (E
 | `DELETE /sessions/:code` | permanent delete (with its telemetry, ECG, notes, AI runs) |
 | `POST /sessions/bulk {action: complete\|archive\|unarchive\|delete, codes: [...]}` | the list's bulk bar |
 | `GET /sessions/:code/telemetry?since&limit` · `POST` *ingest* | battery / signal / BPM cards; device posts one reading or `{readings: [...]}` |
+| `GET /sessions/:code/stream?role=view|push&token=…` (WebSocket) | Live heartbeat stream, one Durable Object (`SessionHub`) per session. `role=view`: receives `{type:"live", ecg?: {started_at, hz, lead, samples}, telemetry?: {bpm, …}}` for every chunk saved, whether it came in over the socket or through REST (`POST …/data`, `…/ecg`, `…/telemetry`). `role=push` (device with `?key=<ingest key>`, or a login with `config.manage`): send `{seq, bpm, ecg_waveform}` frames (same body as `POST …/data`); each gets `{type:"ack", seq, id}` or `{type:"error", seq, status, message}`. A browser cannot set headers on a WebSocket, so the login token goes in the query string. `ping` text is answered with `pong` without waking the object. A viewer only gets sessions it may see (a doctor: own sessions) |
+| `POST /sessions/:code/data` *open* | For the Android app of the older EKG system, which cannot be changed: same path, body `{bpm, ecg_waveform}` (array, `"1,2,3"` or `"[1,2,3]"`) and reply `201 {message: "Data saved successfully", id}` as ekg's `POST /api/sessions/:session_id/data`. No key is sent, so it only accepts a *running* session (409 otherwise; 404 unknown), at most 20000 samples, `bpm` 0-400. The chunk is taken to end now: samples are placed backwards at the session's sampling rate and stored as int16 (values are rounded, not scaled); `bpm` also updates the telemetry and the session's last BPM |
 | `GET /sessions/:code/ecg?from&to&lead` · `POST` *ingest* | waveform strip (default last 10 s); device posts `{started_at, samples: [int16…]}` or `samples_b64` |
 | `GET /sessions/:code/notes?before&limit` · `POST` *ingest* | timeline; `before` = oldest `occurred_at` loads older notes. Devices may only post `patient` / `system` notes |
 | `GET/POST /sessions/:code/analyses` | "Jalankan Analisa AI": queues a run (one at a time per session) |

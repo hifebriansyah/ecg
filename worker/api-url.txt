@@ -1,1 +1,1 @@
-https://ecg-api.hifebriansyah.workers.dev
+https://api-ecg.situs.id
