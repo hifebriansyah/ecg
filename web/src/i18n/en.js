@@ -5,5 +5,6 @@ import master from './en.master.js';
 import docsGuide from './en.docs.guide.js';
 import docsRisk from './en.docs.risk.js';
 import simulator from './en.simulator.js';
+import viewer from './en.viewer.js';
 
-export default { ...shared, ...sessions, ...master, ...docsGuide, ...docsRisk, ...simulator };
+export default { ...shared, ...sessions, ...master, ...docsGuide, ...docsRisk, ...simulator, ...viewer };

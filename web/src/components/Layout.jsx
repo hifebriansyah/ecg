@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
-  ChevronDown, ChevronsUpDown, CirclePlus, Database, HeartPulse, Languages, LayoutGrid, FileText, LogOut, Menu, Settings, Activity, X,
+  ChevronDown, ChevronsUpDown, CirclePlus, Database, Languages, LayoutGrid, FileText, LogOut, Menu, Settings, Activity, X,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import { api } from '../lib/api.js';
 import { useApi } from '../lib/useApi.js';
-import { Modal, cx, useToast } from './ui.jsx';
+import { Logo, Modal, cx, useToast } from './ui.jsx';
 import { initials } from '../lib/format.js';
 import { t } from '../lib/i18n.jsx';
 
@@ -121,7 +121,7 @@ function Sidebar({ stats, onNavigate }) {
   return (
     <div className="flex h-full flex-col bg-surface-container-lowest">
       <div className="flex h-16 items-center gap-3 border-b border-outline-variant/20 px-6">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary-container text-on-primary"><HeartPulse className="size-5" /></div>
+        <Logo className="size-9" />
         <div>
           <p className="font-headline text-base font-bold leading-none tracking-tight">DETAKITA</p>
           <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-outline">Telecardiology OS</p>
@@ -177,7 +177,7 @@ export default function Layout() {
       {/* mobile top bar + drawer */}
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-outline-variant/30 bg-surface-container-lowest px-4 lg:hidden">
         <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary-container text-on-primary"><HeartPulse className="size-4.5" /></div>
+          <Logo className="size-8" />
           <span className="font-headline font-bold">DETAKITA</span>
         </div>
         <button type="button" onClick={() => setDrawer(true)} className="rounded-lg p-2 hover:bg-surface-container-low" aria-label={t('Buka menu')}><Menu className="size-5" /></button>

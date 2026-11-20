@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
-  Archive, ArchiveRestore, BatteryMedium, Brain, CircleCheck, Heart, LoaderCircle, Pause, PhoneCall, Play, RefreshCw,
+  Archive, ArchiveRestore, BatteryMedium, Brain, CircleCheck, Heart, LoaderCircle, PhoneCall, RefreshCw,
   Send, Signal, Sparkles, Stethoscope, Trash2, UserRound, Waves, Cpu,
 } from 'lucide-react';
 import { api } from '../../lib/api.js';
@@ -11,7 +11,8 @@ import { useApi } from '../../lib/useApi.js';
 import { getTransport, setTransport } from '../../lib/stream.js';
 import { TONE_COLOR, fmtDateTime, fmtDuration, fmtHM, fmtTime, rhythmTone, sexLabel } from '../../lib/format.js';
 import { useStats } from '../../components/Layout.jsx';
-import { EcgCanvas, useEcg } from '../../components/EcgStrip.jsx';
+import { useEcg } from '../../components/EcgStrip.jsx';
+import EcgViewer from '../../components/EcgViewer.jsx';
 import {
   Button, Card, CodeTag, ConfirmDialog, ErrorBlock, LoadingBlock, PageHeader, Select, StatusPill, cx, useToast,
 } from '../../components/ui.jsx';
@@ -44,11 +45,10 @@ const signalLabel = (q) => (q == null ? '—' : q >= 95 ? 'Sangat Baik' : q >= 8
 // ─── live monitor ─────────────────────────────────────────────────────────────
 function Monitor({ s }) {
   const live = s.status === 'running';
-  const [frozen, setFrozen] = useState(false);
-  const [frozenAt, setFrozenAt] = useState(null);
+  const [mode, setMode] = useState(live ? 'live' : 'review'); // 'live' (sweep) | 'review' (zoom, navigate, ...): see EcgViewer
   const [pref, setPref] = useState(getTransport()); // 'ws' | 'rest': how the live strip gets its data
-  const to = frozen ? frozenAt : live ? undefined : (s.last_seen_at || s.ended_at || undefined);
-  const ecg = useEcg(s.code, { span: 10000, to, poll: live && !frozen ? Math.max(2000, s.sync_interval_sec * 1000) : undefined, stream: live && !frozen && pref === 'ws' });
+  const liveNow = live && mode === 'live';
+  const ecg = useEcg(live ? s.code : null, { span: 10000, poll: liveNow ? Math.max(2000, s.sync_interval_sec * 1000) : undefined, stream: liveNow && pref === 'ws' });
   const tel = ecg.telemetry ? { ...s.latest_telemetry, ...ecg.telemetry } : s.latest_telemetry; // readings pushed over the socket are newer than the page's own refresh
   const switchTransport = (v) => { setTransport(v); setPref(v); };
   const tone = rhythmTone(tel?.bpm ?? s.last_bpm, tel?.rhythm || s.last_rhythm || '');
@@ -57,62 +57,7 @@ function Monitor({ s }) {
 
   return (
     <Card className="p-4 sm:p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <CodeTag>SN: {s.device ? `${s.device.serial_number} (${s.device.model})` : t('Tanpa perangkat')}</CodeTag>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-md border border-outline-variant/40 bg-surface-container-low px-2.5 py-1 font-mono text-xs">Filter: <span className="font-semibold text-primary">{t('Aktif ({lo} - {hi} Hz)', { lo: s.filter_low_hz, hi: s.filter_high_hz })}</span></span>
-          {live && !frozen && (
-            <span className="inline-flex overflow-hidden rounded-md border border-outline-variant/40 font-mono text-xs" role="group" aria-label={t('Sumber data langsung')}>
-              {[['ws', 'WebSocket'], ['rest', 'REST']].map(([v, label]) => (
-                <button key={v} type="button" onClick={() => switchTransport(v)} aria-pressed={pref === v}
-                  className={cx('flex items-center gap-1.5 px-2.5 py-1', pref === v ? 'bg-primary-container font-semibold text-on-primary' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container')}>
-                  {v === 'ws' && pref === 'ws' && <span className={cx('size-1.5 rounded-full', ecg.transport === 'ws' ? 'bg-[#2ee6c5]' : 'bg-[#f5b934]')} title={ecg.transport === 'ws' ? t('Terhubung') : t('Menyambung… (sementara memakai REST)')} />}
-                  {label}
-                </button>
-              ))}
-            </span>
-          )}
-          {live && (
-            <Button variant="secondary" icon={frozen ? Play : Pause} className="!py-1.5" onClick={() => { setFrozen((f) => !f); setFrozenAt(Date.now()); }}>
-              {frozen ? t('Lanjutkan') : t('Bekukan (Freeze)')}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-xl bg-[#0b1c30] text-white">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5">
-          <div className="flex items-center gap-3">
-            <span className={cx('size-2.5 rounded-full', live && !frozen ? 'animate-pulse bg-[#2ee6c5]' : 'bg-white/40')} />
-            <span className="font-headline text-sm font-semibold">Continuous Lead {s.lead} Waveform Strip</span>
-            <span className="hidden font-mono text-xs text-white/60 sm:inline">25 mm/s&nbsp;&nbsp;10 mm/mV</span>
-          </div>
-          <span className="font-mono text-[11px] text-[#2ee6c5]">{t('Waktu Sinyal: {time} • Standard AAMI Calibration', { time: ecg.to ? fmtTime(ecg.to) : '—' })}</span>
-        </div>
-        <div className="relative">
-          <EcgCanvas chunks={ecg.chunks} hz={ecg.hz} from={ecg.from} to={ecg.to} color={color} grid height={240} label={t('Strip EKG Lead II')} />
-          {ecg.loaded && ecg.chunks.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center font-mono text-xs uppercase tracking-wider text-white/50">
-              {live ? t('Menunggu sinyal dari perangkat…') : t('Tidak ada rekaman pada rentang ini')}
-            </div>
-          )}
-          <div className="absolute right-3 top-3 flex items-center gap-4 rounded-xl border border-white/10 bg-[#13263d]/90 px-4 py-3 backdrop-blur">
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-wider text-white/60">{t('Laju Detak Jantung')}</p>
-              <p className="mt-1 flex items-baseline gap-1.5"><Heart className="size-4 self-center" style={{ color }} /><span className="font-mono text-3xl font-bold">{tel?.bpm ?? s.last_bpm ?? '—'}</span><span className="font-mono text-xs text-white/60">BPM</span></p>
-            </div>
-            <div className="hidden border-l border-white/10 pl-4 sm:block">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-white/60">{t('Irama')}</p>
-              <p className="mt-1 font-headline text-sm font-semibold" style={{ color }}>{tel?.rhythm || s.last_rhythm || t('Menunggu analisis')}</p>
-              <p className="font-mono text-[11px] text-white/60">PR: {tel?.pr_ms ?? '—'}ms • QRS: {tel?.qrs_ms ?? '—'}ms</p>
-            </div>
-          </div>
-          {frozen && <span className="absolute left-3 top-3 rounded-md bg-[#f5b934] px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-[#0b1c30]">{t('Dibekukan')}</span>}
-        </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-1 px-4 py-2.5 font-mono text-[11px] text-white/50 sm:px-5">
-          <span>{t('Skala: 10 mm/mV')}</span><span>Lead Vector: {s.lead} (+60°)</span><span>Bandwidth: {s.filter_low_hz} - {s.filter_high_hz} Hz</span>
-        </div>
-      </div>
+      <EcgViewer s={s} ecg={ecg} tel={tel} color={color} live={live} mode={mode} setMode={setMode} pref={pref} switchTransport={switchTransport} />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="p-4">

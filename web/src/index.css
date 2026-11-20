@@ -54,6 +54,10 @@
   .doc-scroll::-webkit-scrollbar-thumb { background: var(--color-outline); border-radius: 8px; border: 2px solid var(--color-surface-container); }
 
   @media print {
+    /* the ECG viewer prints alone: everything else on the page is hidden while body has .ecg-printing */
+    body.ecg-printing * { visibility: hidden !important; }
+    body.ecg-printing #ecg-viewer, body.ecg-printing #ecg-viewer * { visibility: visible !important; }
+    body.ecg-printing #ecg-viewer { position: absolute; left: 0; top: 0; width: 100%; border-radius: 0; }
     aside, header.sticky { display: none !important; }
     main { padding: 0 !important; min-height: 0 !important; }
     body { background: #fff; }

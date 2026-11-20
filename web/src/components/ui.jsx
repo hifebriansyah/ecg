@@ -12,6 +12,11 @@ import { t } from '../lib/i18n.jsx';
 export const cx = (...c) => c.filter(Boolean).join(' ');
 
 // ─── layout ───────────────────────────────────────────────────────────────────
+// The DETAKITA logo (public/logo.png), as a rounded square. `className` sets the size, e.g. 'size-9'.
+export function Logo({ className = 'size-9' }) {
+  return <img src={`${import.meta.env.BASE_URL}logo.png`} alt="DETAKITA" width="64" height="64" className={cx('shrink-0 rounded-lg', className)} />;
+}
+
 export function Card({ className, children, ...rest }) {
   return <div className={cx('rounded-xl border border-outline-variant/30 bg-surface-container-lowest', className)} {...rest}>{children}</div>;
 }

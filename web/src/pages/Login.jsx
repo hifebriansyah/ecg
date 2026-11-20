@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router';
 import { AlertCircle, Eye, EyeOff, HeartPulse, KeyRound, LoaderCircle, Lock, Mail, ShieldCheck, Stethoscope, UserCog } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import { getLang, setLang, t } from '../lib/i18n.jsx';
+import { Logo } from '../components/ui.jsx';
 import DEMO_LOGINS from '../demo-logins.json';
 
 const ROLE_OPTIONS = [
@@ -87,9 +88,7 @@ export default function Login() {
       <aside className="relative hidden overflow-hidden bg-primary text-on-primary lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(currentColor_1px,transparent_1px),linear-gradient(90deg,currentColor_1px,transparent_1px)] [background-size:24px_24px]" />
         <div className="relative flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary-container">
-            <HeartPulse className="size-6" />
-          </div>
+          <Logo className="size-10 rounded-xl" />
           <div>
             <p className="font-headline text-lg font-bold tracking-tight">DETAKITA</p>
             <p className="font-mono text-xs text-primary-fixed-dim">Telecardiology OS</p>
@@ -121,9 +120,7 @@ export default function Login() {
             ))}
           </div>
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary-container text-on-primary">
-              <HeartPulse className="size-5" />
-            </div>
+            <Logo className="size-9" />
             <span className="font-headline text-lg font-bold tracking-tight">DETAKITA</span>
           </div>
 

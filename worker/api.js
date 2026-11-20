@@ -527,6 +527,64 @@ async function addLegacyData(env, code, input) {
   return { message: 'Data saved successfully', id: res[0].meta.last_row_id, live };
 }
 
+// Heart-rate trend of the whole recording (one point per bucket) for the viewer's trend chart.
+async function getTrend(env, code, url) {
+  const s = await getSession(env, code);
+  const end = s.ended_at || s.last_seen_at || Date.now();
+  const span = Math.max(1000, end - s.started_at);
+  const auto = Math.ceil(span / 1000 / 400); // about 400 points at most
+  const bucket = Math.min(3600, Math.max(5, Number(url.searchParams.get('bucket')) || Math.max(10, auto)));
+  const { results } = await env.DB.prepare(
+    `SELECT (recorded_at / ?1) * ?1 AS t, ROUND(AVG(bpm)) AS avg, MIN(bpm) AS min, MAX(bpm) AS max, COUNT(*) AS n
+     FROM telemetry WHERE session_id = ?2 AND bpm IS NOT NULL AND bpm > 0 GROUP BY t ORDER BY t LIMIT 2000`
+  ).bind(bucket * 1000, s.id).all();
+  return { bucket_sec: bucket, started_at: s.started_at, ended_at: end, data: results };
+}
+
+// Moments worth jumping to: the AI findings plus what the readings show (fastest / slowest beat, rhythm changes).
+async function getMoments(env, code) {
+  const s = await getSession(env, code);
+  const out = [];
+  const a = await env.DB.prepare("SELECT findings FROM ai_analyses WHERE session_id = ? AND status = 'done' ORDER BY created_at DESC LIMIT 1").bind(s.id).first();
+  if (a && a.findings) {
+    let f = null; try { f = JSON.parse(a.findings); } catch { /* not JSON */ }
+    if (Array.isArray(f)) for (const x of f) if (x && Number(x.at) > 0) out.push({ at: Number(x.at), kind: 'ai', label: String(x.type || 'AI'), bpm: x.bpm ?? null });
+  }
+  const [hi, lo, changes] = await env.DB.batch([
+    env.DB.prepare('SELECT recorded_at AS at, bpm FROM telemetry WHERE session_id = ? AND bpm > 0 ORDER BY bpm DESC, recorded_at LIMIT 1').bind(s.id),
+    env.DB.prepare('SELECT recorded_at AS at, bpm FROM telemetry WHERE session_id = ? AND bpm > 0 ORDER BY bpm, recorded_at LIMIT 1').bind(s.id),
+    env.DB.prepare(`SELECT at, rhythm FROM (SELECT recorded_at AS at, rhythm, LAG(rhythm) OVER (ORDER BY recorded_at) AS prev FROM telemetry WHERE session_id = ?)
+                    WHERE rhythm IS NOT NULL AND prev IS NOT NULL AND rhythm <> prev ORDER BY at LIMIT 40`).bind(s.id),
+  ]);
+  if (hi.results[0]) out.push({ at: hi.results[0].at, kind: 'max_bpm', label: 'Detak tercepat', bpm: hi.results[0].bpm });
+  if (lo.results[0] && (!hi.results[0] || lo.results[0].bpm !== hi.results[0].bpm)) out.push({ at: lo.results[0].at, kind: 'min_bpm', label: 'Detak terlambat', bpm: lo.results[0].bpm });
+  for (const c of changes.results) out.push({ at: c.at, kind: 'rhythm', label: c.rhythm, bpm: null });
+  out.sort((x, y) => x.at - y.at);
+  return { started_at: s.started_at, ended_at: s.ended_at || s.last_seen_at || Date.now(), data: out.slice(0, 80) };
+}
+
+// CSV of a stretch of the ECG (at most 10 minutes): time_ms, time_iso (UTC), value_uv.
+async function getEcgCsv(env, code, url) {
+  const s = await getSession(env, code);
+  const lead = url.searchParams.get('lead') || s.lead;
+  const to = Number(url.searchParams.get('to') || Date.now());
+  const from = Number(url.searchParams.get('from') || to - 60000);
+  if (!(to > from) || to - from > 10 * 60000) throw bad('from/to must span 0-10 minutes');
+  const { results } = await env.DB.prepare('SELECT started_at, sample_count, samples FROM ecg_chunks WHERE session_id = ? AND lead = ? AND started_at < ? AND started_at >= ? ORDER BY started_at')
+    .bind(s.id, lead, to, from - 120000).all();
+  const dt = 1000 / s.sampling_hz;
+  const lines = ['time_ms,time_iso,value_uv'];
+  for (const c of results) {
+    const u8 = c.samples instanceof ArrayBuffer ? new Uint8Array(c.samples) : Uint8Array.from(c.samples);
+    const arr = new Int16Array(u8.buffer, u8.byteOffset, u8.byteLength / 2);
+    for (let i = 0; i < arr.length; i++) {
+      const t = c.started_at + i * dt;
+      if (t >= from && t < to) lines.push(`${Math.round(t * 10) / 10},${new Date(t).toISOString()},${arr[i]}`);
+    }
+  }
+  return new Response(lines.join('\n') + '\n', { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ecg-${s.code}-${new Date(from).toISOString().slice(0, 19).replace(/[:T]/g, '')}.csv"` } });
+}
+
 async function getEcg(env, code, url) {
   const s = await getSession(env, code);
   const lead = url.searchParams.get('lead') || s.lead;
@@ -1128,6 +1186,9 @@ const ROUTES = [
   ['GET', '/sessions/:code/telemetry', ({ env, p, url }) => listTelemetry(env, p.code, url), 'sessions.read_own,sessions.read_all'],
   ['POST', '/sessions/:code/telemetry', async ({ env, req, p }) => [201, await withLive(env, p.code, await addTelemetry(env, p.code, await body(req)))], 'device+master.write'],
   ['POST', '/sessions/:code/data', async ({ env, req, p }) => [201, await withLive(env, p.code, await addLegacyData(env, p.code, await body(req)))], 'public'], // the old APK: see addLegacyData
+  ['GET', '/sessions/:code/trend', ({ env, p, url }) => getTrend(env, p.code, url), 'sessions.read_own,sessions.read_all'],
+  ['GET', '/sessions/:code/moments', ({ env, p }) => getMoments(env, p.code), 'sessions.read_own,sessions.read_all'],
+  ['GET', '/sessions/:code/ecg.csv', ({ env, p, url }) => getEcgCsv(env, p.code, url), 'sessions.read_own,sessions.read_all'],
   ['GET', '/sessions/:code/ecg', ({ env, p, url }) => getEcg(env, p.code, url), 'sessions.read_own,sessions.read_all'],
   ['POST', '/sessions/:code/ecg', async ({ env, req, p }) => [201, await withLive(env, p.code, await addEcg(env, p.code, await body(req)))], 'device+master.write'],
   ['GET', '/sessions/:code/stream', (ctx) => streamHandler(ctx), 'public'], // WebSocket upgrade; the token / key is checked inside
